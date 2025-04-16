@@ -1,0 +1,15 @@
+fastapi~=0.115.11
+pydantic~=2.10.6
+openai~=1.67.0
+dotenv~=0.9.9
+python-dotenv~=1.0.1
+google~=3.0.0
+requests~=2.32.3
+pillow~=11.1.0
+torch~=2.6.0
+diffusers~=0.32.2
+Telethon~=1.39.0
+SQLAlchemy~=2.0.40
+alembic~=1.15.2
+protobuf~=6.30.2
+punq~=0.7.0
