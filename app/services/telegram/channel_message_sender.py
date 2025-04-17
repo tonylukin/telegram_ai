@@ -9,7 +9,7 @@ from telethon.tl.types import PeerChannel
 from app.config import TELEGRAM_CHANNELS_TO_COMMENT, TELEGRAM_USERS_TO_COMMENT
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
-from app.config import AI_COMMENT_TEXT
+from app.config import AI_COMMENT_TEXT, AI_COMMENT_TEXT_LINK
 
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
@@ -44,7 +44,7 @@ class ChannelMessageSender:
             channel_name = sender.username
             channel_config = self.channels_configs.get(channel_name)
             probability = channel_config.get('probability', 1)
-            if probability < 1 and random.choice(range(int(1 / probability))) != 0:
+            if probability < 1 and random.choice(range(1, 101)) <= int(probability * 100):
                 logging.info(f"Channel {channel_name} probability is {probability} - missing this comment")
                 return
 
@@ -67,7 +67,7 @@ class ChannelMessageSender:
                     group_id = discussion.chats[0].id
                     link = ''
                     if channel_config.get("link", False) and random.choice(range(4)) == 0:
-                        link = ' и вставь ссылку на канал @news_luxury_narrator'
+                        link = AI_COMMENT_TEXT_LINK
                     comment_text = self.ai_client.generate_text(AI_COMMENT_TEXT.format(text=discussion_msg.message + link))
 
                     print(f"🗨️ Assigned group: {group_id}[@{channel_name}], message: {discussion_msg.message}")
