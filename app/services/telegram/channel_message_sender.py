@@ -4,12 +4,12 @@ from typing import List
 from fastapi.params import Depends
 from telethon import TelegramClient, events
 from app.configs.logger import logging
-from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel
 from app.config import TELEGRAM_CHANNELS_TO_COMMENT, TELEGRAM_USERS_TO_COMMENT
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
+from app.config import AI_COMMENT_TEXT
 
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
@@ -68,7 +68,7 @@ class ChannelMessageSender:
                     link = ''
                     if channel_config.get("link", False) and random.choice(range(4)) == 0:
                         link = ' и вставь ссылку на канал @news_luxury_narrator'
-                    comment_text = self.ai_client.generate_text(f"Придумай смешной и короткий ответ на {discussion_msg.message}{link}")
+                    comment_text = self.ai_client.generate_text(AI_COMMENT_TEXT.format(text=discussion_msg.message + link))
 
                     print(f"🗨️ Assigned group: {group_id}[@{channel_name}], message: {discussion_msg.message}")
 

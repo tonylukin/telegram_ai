@@ -1,9 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
-from app.services.telegram_message_sender import send_telegram_message
+from app.services.telegram.telegram_message_sender import send_telegram_message
 from app.services.text_maker import TextMaker, TextMakerDependencyConfig
 from pydantic import BaseModel
-import asyncio
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 

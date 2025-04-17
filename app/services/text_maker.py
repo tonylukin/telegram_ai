@@ -10,6 +10,7 @@ from app.services.ai.gemini_client import GeminiClient
 from app.services.ai.open_ai_client import OpenAiClient
 from app.services.news.news_api_client import NewsApiClient
 from app.services.news.news_maker_base import NewsMakerBase
+from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT
 
 def get_news_maker() -> NewsMakerBase:
     return NewsApiClient()
@@ -57,7 +58,6 @@ class TextMaker:
         'Николай Дроздов',
         'Саша Спилберг',
         'Джиган',
-        # 'Карен Акопян (karena_makarena)',
     ]
 
     def __init__(self, config: TextMakerDependencyConfig):
@@ -78,11 +78,11 @@ class TextMaker:
 
             by_person = person or random.choice(self.PERSONS)
             try:
-                text = self.ai_client.generate_text(f"Опиши новость \"{news_text}\" в стиле {by_person}")
+                text = self.ai_client.generate_text(AI_NEWS_POST_TEXT.format(news_text=news_text, by_person=by_person))
                 image_random = random.choice([1, 2, 3])
                 image = None
                 if image_random == 3:
-                    image = self.ai_client_images.generate_image(f"Создай смешную картинку на новость \"{news_text}\" от лица {by_person}")
+                    image = self.ai_client_images.generate_image(AI_NEWS_POST_IMAGE.format(news_text=news_text, by_person=by_person))
             except Exception as e:
                 logging.error(f'Skipping news {news_text}, error: {e}')
                 continue
