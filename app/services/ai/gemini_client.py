@@ -1,5 +1,6 @@
 from app.services.ai.ai_client_base import AiClientBase
-from google import genai
+# from google import genai
+import google.generativeai as genai
 from app.config import GEMINI_API_KEY
 from PIL import Image
 from io import BytesIO
@@ -8,9 +9,11 @@ import base64
 class GeminiClient(AiClientBase):
     def __init__(self):
         super().__init__()
-        self.client = genai.Client(api_key=GEMINI_API_KEY)
+        # self.client = genai.Client(api_key=GEMINI_API_KEY)
+        genai.configure(api_key=GEMINI_API_KEY)
 
     def generate_image(self, prompt: str):
+        pass
         response = self.client.models.generate_images(
             model='imagen-3.0-generate-002',
             prompt=prompt,
@@ -27,8 +30,6 @@ class GeminiClient(AiClientBase):
         return None
 
     def generate_text(self, prompt: str) -> str:
-        response = self.client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=prompt,
-        )
+        model = genai.GenerativeModel(model_name="gemini-2.0-flash")
+        response = model.generate_content(prompt)
         return response.text
