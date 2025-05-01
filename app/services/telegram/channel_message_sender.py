@@ -1,6 +1,5 @@
 import asyncio
 import random
-from typing import List
 from fastapi.params import Depends
 from telethon import TelegramClient, events
 from app.configs.logger import logging
@@ -10,29 +9,29 @@ from app.config import TELEGRAM_CHANNELS_TO_COMMENT, TELEGRAM_USERS_TO_COMMENT
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.config import AI_COMMENT_TEXT, AI_COMMENT_TEXT_LINK
+from app.services.telegram.clients_creator import ClientsCreator
 
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
 
+def get_telegram_clients() -> ClientsCreator:
+    return ClientsCreator(TELEGRAM_USERS_TO_COMMENT)
+
 class ChannelMessageSender:
-    def __init__(self, ai_client: AiClientBase = Depends(get_ai_client)):
+    def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends(get_telegram_clients)):
         self.ai_client = ai_client
         self.channels_configs = TELEGRAM_CHANNELS_TO_COMMENT
-        self.clients = []
-        self.user_configs = TELEGRAM_USERS_TO_COMMENT
+        self.clients_creator = clients_creator
 
     async def start_messaging(self):
-        await asyncio.gather(*(self.start_client(user_config) for user_config in self.user_configs))
-        await asyncio.gather(*(client.run_until_disconnected() for client in self.clients))
+        clients = await self.clients_creator.create_clients()
+        await asyncio.gather(*(self.start_client(client) for client in clients))
+        await asyncio.gather(*(client.run_until_disconnected() for client in clients))
 
-    async def start_client(self, user_config: List[str]):
-        api_id = int(user_config[0])
-        api_hash = user_config[1]
-        session = user_config[2]
-        client = TelegramClient(api_id=api_id, api_hash=api_hash, session=session)
+    async def start_client(self, client: TelegramClient):
         await client.start()
         channel_usernames = list(self.channels_configs.keys())
-        print(f"✅ Started client: {session} for channels: {channel_usernames}")
+        logging.info(f"✅ Started client: {client.session} for channels: {channel_usernames}")
 
         @client.on(events.NewMessage(chats=channel_usernames))
         async def handler(event):
@@ -70,18 +69,18 @@ class ChannelMessageSender:
                         link = AI_COMMENT_TEXT_LINK
                     comment_text = self.ai_client.generate_text(AI_COMMENT_TEXT.format(text=discussion_msg.message + link))
 
-                    print(f"🗨️ Assigned group: {group_id}[@{channel_name}], message: {discussion_msg.message}")
+                    logging.info(f"🗨️ Assigned group: {group_id}[@{channel_name}], message: {discussion_msg.message}")
 
                     await client.send_message(
                         entity=PeerChannel(group_id),
                         message=comment_text,
                         reply_to=discussion_msg.id
                     )
-                    print(f"✅ Comment sent to {group_id}[@{channel_name}]: {comment_text}")
+                    logging.info(f"✅ Comment sent to {group_id}[@{channel_name}]: {comment_text}")
                 except Exception as e:
-                    print(f"❌ Sending comment error: {e}")
+                    logging.error(f"❌ Sending comment error: {e}")
             else:
-                print("❌ Comments off or no assigned group")
+                logging.info("❌ Comments off or no assigned group")
 
         self.clients.append(client)
 
@@ -97,9 +96,9 @@ class ChannelMessageSender:
     #                 # Проверяем, не мут/бан
     #                 banned_rights = getattr(p, "banned_rights", None)
     #                 if banned_rights:
-    #                     print(f"🔒 У пользователя запрет: {banned_rights}")
+    #                     logging.info(f"🔒 У пользователя запрет: {banned_rights}")
     #                     return False
     #                 return True
     #     except Exception as e:
-    #         print(f"❌ Ошибка при проверке прав: {e}")
+    #         logging.error(f"❌ Ошибка при проверке прав: {e}")
     #         return False
