@@ -1,4 +1,5 @@
-import sys
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 
@@ -6,15 +7,8 @@ from app.services.telegram.reaction_sender import ReactionSender
 from app.services.telegram.telegram_message_sender import send_telegram_message
 from app.services.text_maker import TextMaker, TextMakerDependencyConfig
 from pydantic import BaseModel
-from app.configs.logger import logging
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
-handler = logging.StreamHandler(sys.stdout)
-
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-if not logger.handlers:
-    logger.addHandler(handler)
 
 class GenerateTextBody(BaseModel):
     count: int
@@ -37,13 +31,13 @@ def generate_texts(body: GenerateTextBody, config: TextMakerDependencyConfig = D
         raise HTTPException(status_code=500, detail=str(e))
 
 class GenerateReactionsBody(BaseModel):
-    query: str
+    query: Optional[str] = None
 
 @router.post("/generate-reactions")
-async def generate_reactions(body: GenerateReactionsBody, config: TextMakerDependencyConfig = Depends(), reaction_sender: ReactionSender = Depends(ReactionSender)):
+async def generate_reactions(body: GenerateReactionsBody, reaction_sender: ReactionSender = Depends()):
     try:
-        await reaction_sender.send_reactions(query=body.query)
-        return {"status": "ok"}
+        result = await reaction_sender.send_reactions(query=body.query)
+        return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
