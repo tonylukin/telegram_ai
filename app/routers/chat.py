@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 
+from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.reaction_sender import ReactionSender
 from app.services.telegram.telegram_message_sender import send_telegram_message
 from app.services.text_maker import TextMaker, TextMakerDependencyConfig
@@ -37,6 +38,18 @@ class GenerateReactionsBody(BaseModel):
 async def generate_reactions(body: GenerateReactionsBody, reaction_sender: ReactionSender = Depends()):
     try:
         result = await reaction_sender.send_reactions(query=body.query)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class GenerateMessagesBody(BaseModel):
+    names: Optional[list[str]] = None
+    message: str
+
+@router.post("/generate-messages")
+async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMessenger = Depends()):
+    try:
+        result = await chat_messenger.send_messages_to_chats_by_names(names=body.names, message=body.message)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

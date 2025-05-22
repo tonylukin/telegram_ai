@@ -6,20 +6,16 @@ from telethon.tl.types import Channel, PeerChannel
 from telethon.tl.functions.messages import SendReactionRequest
 from telethon.tl.types import ReactionEmoji
 from telethon import TelegramClient
-from app.config import TELEGRAM_USERS_TO_REACT
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.clients_creator import ClientsCreator
+from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_react
 from app.configs.logger import logging
-
-def get_telegram_clients() -> ClientsCreator:
-    return ClientsCreator(TELEGRAM_USERS_TO_REACT)
 
 class ReactionSender:
     MAX_REACTIONS_PER_CHAT = 5
     MAX_MESSAGES_PER_CHAT = 100
     REACTIONS = ["❤️"]
 
-    def __init__(self, clients_creator: ClientsCreator = Depends(get_telegram_clients), chat_searcher: ChatSearcher = Depends(ChatSearcher)):
+    def __init__(self, clients_creator: ClientsCreator = Depends(get_telegram_clients_to_react), chat_searcher: ChatSearcher = Depends(ChatSearcher)):
         self.clients = []
         self.clients_creator = clients_creator
         self.chat_searcher = chat_searcher
@@ -116,7 +112,7 @@ class ReactionSender:
         await client.start()
         logging.info(f"{client.session.filename} started")
         if self.query is not None:
-            result = await self.search_chats(client)
+            result = await self.search_chats(client=client)
         else:
             result = await self.send_reactions_to_my_chats(client=client)
 

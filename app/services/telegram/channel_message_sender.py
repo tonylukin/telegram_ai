@@ -5,23 +5,21 @@ from telethon import TelegramClient, events
 from app.configs.logger import logging
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel
-from app.config import TELEGRAM_CHANNELS_TO_COMMENT, TELEGRAM_USERS_TO_COMMENT
+from app.config import TELEGRAM_CHANNELS_TO_COMMENT
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.config import AI_COMMENT_TEXT, AI_COMMENT_TEXT_LINK
-from app.services.telegram.clients_creator import ClientsCreator
+from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
 
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
 
-def get_telegram_clients() -> ClientsCreator:
-    return ClientsCreator(TELEGRAM_USERS_TO_COMMENT)
-
 class ChannelMessageSender:
-    def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends(get_telegram_clients)):
+    def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends(get_telegram_clients_to_comment)):
         self.ai_client = ai_client
         self.channels_configs = TELEGRAM_CHANNELS_TO_COMMENT
         self.clients_creator = clients_creator
+        self.clients = []
 
     async def start_messaging(self):
         clients = await self.clients_creator.create_clients()

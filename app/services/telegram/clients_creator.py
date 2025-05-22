@@ -1,5 +1,6 @@
 from telethon import TelegramClient
 from typing import List
+from app.config import TELEGRAM_USERS_TO_REACT, TELEGRAM_USERS_TO_COMMENT
 
 class ClientsCreator:
     def __init__(self, user_configs: List[dict]):
@@ -15,3 +16,9 @@ class ClientsCreator:
             clients.append(client)
 
         return clients
+
+def get_telegram_clients_to_react() -> ClientsCreator:
+    return ClientsCreator(TELEGRAM_USERS_TO_REACT)
+
+def get_telegram_clients_to_comment() -> ClientsCreator:
+    return ClientsCreator(TELEGRAM_USERS_TO_COMMENT)

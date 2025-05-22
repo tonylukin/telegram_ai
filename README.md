@@ -24,6 +24,13 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-reactions' \
      -d '{}'
 ```
 
+### Run script to generate reactions
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-messages' \
+     -H 'Content-Type: application/json' \
+     -d '{"names": [], "message": ""}'
+```
+
 ### Killing fastAPI debugger
 ```bash
 lsof -i tcp:8000

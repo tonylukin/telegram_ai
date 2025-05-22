@@ -93,6 +93,6 @@ class TextMaker:
             self.session.commit()
         except Exception as e:
             self.session.rollback()
-            print(e)
+            logging.error(e)
         finally:
             self.session.close()
