@@ -13,7 +13,7 @@ from app.configs.logger import logging
 class ReactionSender:
     MAX_REACTIONS_PER_CHAT = 5
     MAX_MESSAGES_PER_CHAT = 100
-    REACTIONS = ["❤️"]
+    REACTIONS = ["❤️", "🔥", "👍", "💯", "🙏", "👀", "😁", "🎉", "🤔", "👏", "🥰"]
 
     def __init__(self, clients_creator: ClientsCreator = Depends(get_telegram_clients_to_react), chat_searcher: ChatSearcher = Depends(ChatSearcher)):
         self.clients = []

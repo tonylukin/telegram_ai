@@ -10,7 +10,7 @@ from app.configs.logger import logging
 import random
 
 from app.db.queries.bot import get_bot
-from app.db.queries.bot_comment import get_bot_comments
+from app.db.queries.bot_comment import get_bot_comments, get_channel_comments
 from app.db.session import Session
 from app.models.bot_comment import BotComment
 from app.services.telegram.chat_searcher import ChatSearcher
@@ -18,6 +18,8 @@ from app.services.telegram.clients_creator import ClientsCreator, get_telegram_c
 from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS
 from app.services.text_maker import TextMakerDependencyConfig
 from telethon.tl.types import ChannelParticipantSelf
+from telethon.tl.functions.channels import GetParticipantRequest
+from telethon.errors import UserNotParticipantError, ChannelPrivateError
 
 
 class ChatMessenger:
@@ -36,7 +38,7 @@ class ChatMessenger:
         self.chat_searcher = chat_searcher
         self.ai_client = config.ai_client
         self.session = Session()
-        self.names = None
+        self.chat_names = None
         self.message = None
 
     @staticmethod
@@ -62,16 +64,11 @@ class ChatMessenger:
     @staticmethod
     async def is_user_in_group(client, chat):
         try:
-            result = await client(GetParticipantsRequest(
-                channel=chat,
-                filter=ChannelParticipantSelf(),
-                offset=0,
-                limit=1,
-                hash=0
-            ))
-            return bool(result.participants)
-        except Exception as e:
-            logging.error(f"⚠️ Не удалось проверить участие в {chat.title}: {e}")
+            result = await client(GetParticipantRequest(channel=chat, participant='me'))
+            return True
+        except UserNotParticipantError:
+            return False
+        except ChannelPrivateError:
             return False
 
     @staticmethod
@@ -88,23 +85,31 @@ class ChatMessenger:
             return False
 
     async def send_messages_to_chats_by_names(self, message: str, names: list[str] = None) -> list[dict[str, int]]:
-        self.names = names
-        if self.names is None:
-            self.names = TELEGRAM_CHATS_TO_POST
+        self.chat_names = names
+        if self.chat_names is None:
+            self.chat_names = TELEGRAM_CHATS_TO_POST
         self.message = message
         clients = await self.clients_creator.create_clients()
-        return await asyncio.gather(*(self.__start_client(client) for client in clients))
 
-    async def __start_client(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+        chat_names = self.chat_names[:]
+        random.shuffle(chat_names)
+        k, m = divmod(len(chat_names), len(clients))
+        return await asyncio.gather(
+            *(self.__start_client(client, chat_names[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]) for i, client in
+              enumerate(clients))
+        )
+
+    async def __start_client(self, client: TelegramClient, chat_names: list[str]) -> dict[str, dict[str, int]]:
         await client.start()
         logging.info(f"{client.session.filename} started")
+
         bot = get_bot(client)
         if bot is None:
             logging.error('Bot not found')
             return {}
 
         chats = []
-        for name in self.names:
+        for name in chat_names:
             try:
                 chat = await client.get_entity(name)
                 if isinstance(chat, Channel) and chat.megagroup:
@@ -112,12 +117,9 @@ class ChatMessenger:
             except Exception as e:
                 logging.error(f"{name}: {e}")
 
-        message = AI_POST_TEXT_TO_CHANNELS.format(text=self.message)
-        message = self.ai_client.generate_text(message)
-
         result = {}
         for chat in chats:
-            comments = get_bot_comments(bot=bot, channel=chat.title)
+            comments = get_channel_comments(channel=chat.title)
             if len(comments) > 0:
                 logging.info(f"{chat.title}: has recent comments")
                 continue
@@ -127,6 +129,9 @@ class ChatMessenger:
             if not await self.is_user_in_group(client, chat):
                 logging.error(f"🚪 Not in chat. Joining {chat.title}")
                 await client(JoinChannelRequest(chat))
+                await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
+
+            message = self.ai_client.generate_text(AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=chat.title))
             if await self.send_message(client=client, chat=chat, message=message):
                 result[chat.title] = 1
                 bot_comment = BotComment(

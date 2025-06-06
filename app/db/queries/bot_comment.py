@@ -8,3 +8,7 @@ session = Session()
 def get_bot_comments(bot: Bot, channel: str, hours: int = 24) -> list[Bot]:
     dt = datetime.now() - timedelta(hours=hours)
     return session.query(BotComment).filter_by(bot_id=bot.id, channel=channel).where(BotComment.created_at >= dt).all()
+
+def get_channel_comments(channel: str, hours: int = 24) -> list[Bot]:
+    dt = datetime.now() - timedelta(hours=hours)
+    return session.query(BotComment).filter_by(channel=channel).where(BotComment.created_at >= dt).all()

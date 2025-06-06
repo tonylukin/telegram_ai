@@ -20,5 +20,5 @@ AI_COMMENT_TEXT = os.getenv("AI_COMMENT_TEXT")
 AI_COMMENT_TEXT_LINK = os.getenv("AI_COMMENT_TEXT_LINK")
 IMAGE_CREATION_PROBABILITY = float(os.getenv("IMAGE_CREATION_PROBABILITY", 1))
 PERSONS = json.loads(os.getenv("PERSONS", "[]"))
-TELEGRAM_CHATS_TO_POST = json.loads(os.getenv("TELEGRAM_CHATS_TO_POST", "[]"))
+TELEGRAM_CHATS_TO_POST = [s[1:] if s.startswith('@') else s for s in json.loads(os.getenv("TELEGRAM_CHATS_TO_POST", "[]"))]
 AI_POST_TEXT_TO_CHANNELS = os.getenv("AI_POST_TEXT_TO_CHANNELS")

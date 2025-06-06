@@ -24,11 +24,17 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-reactions' \
      -d '{}'
 ```
 
-### Run script to generate reactions
+### Run script to generate messages to chats
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-messages' \
      -H 'Content-Type: application/json' \
-     -d '{"names": [], "message": ""}'
+     -d '{"message": "news_luxury_narrator"}'
+
+### Run script to generate comments to channels
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-comments' \
+     -H 'Content-Type: application/json' \
+     -d '{"message": "news_luxury_narrator"}'
 ```
 
 ### Killing fastAPI debugger
