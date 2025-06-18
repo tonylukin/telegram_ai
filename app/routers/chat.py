@@ -7,8 +7,12 @@ from app.services.telegram.assigned_channels_messenger import AssignedChannelsMe
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.reaction_sender import ReactionSender
 from app.services.telegram.telegram_message_sender import send_telegram_message
+from app.services.telegram.user_inviter import UserInviter
+from app.services.telegram.user_messages_search import UserMessagesSearch
 from app.services.text_maker import TextMaker, TextMakerDependencyConfig
 from pydantic import BaseModel
+
+from app.services.user_info_collector import UserInfoCollector
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -56,9 +60,29 @@ async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMess
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/generate-comments")
-async def generate_messages(body: GenerateMessagesBody, assigned_channels_messenger: AssignedChannelsMessenger = Depends()):
+async def generate_comments(body: GenerateMessagesBody, assigned_channels_messenger: AssignedChannelsMessenger = Depends()):
     try:
         result = await assigned_channels_messenger.send_messages_to_assigned_channels(message=body.message)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/invite-users")
+async def invite_users(user_inviter: UserInviter = Depends()):
+    try:
+        result = await user_inviter.invite_users_from_comments()
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class UserInfoBody(BaseModel):
+    username: str
+    chats: Optional[list[str]] = None
+
+@router.post("/info")
+async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector = Depends()):
+    try:
+        result = await user_info_collector.get_user_info(username=body.username, channel_usernames=body.chats)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -108,7 +108,7 @@ class ReactionSender:
 
         return result
 
-    async def start_client(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __start_client(self, client: TelegramClient) -> dict[str, dict[str, int]]:
         await client.start()
         logging.info(f"{client.session.filename} started")
         if self.query is not None:
@@ -116,7 +116,7 @@ class ReactionSender:
         else:
             result = await self.send_reactions_to_my_chats(client=client)
 
-        client.disconnect()
+        await client.disconnect()
         logging.info(f"Reactions found: {result}")
         return result
 
@@ -124,5 +124,5 @@ class ReactionSender:
         self.query = query
         self.reaction = reaction
         clients = await self.clients_creator.create_clients()
-        return await asyncio.gather(*(self.start_client(client) for client in clients))
+        return await asyncio.gather(*(self.__start_client(client) for client in clients))
         # await asyncio.gather(*(client.run_until_disconnected() for client in self.clients))

@@ -62,7 +62,7 @@ class ChatMessenger:
         return False
 
     @staticmethod
-    async def is_user_in_group(client, chat):
+    async def is_user_in_group(client, chat) -> bool:
         try:
             result = await client(GetParticipantRequest(channel=chat, participant='me'))
             return True
@@ -151,6 +151,6 @@ class ChatMessenger:
         finally:
             self.session.close()
         result = {client.session.filename: result}
-        client.disconnect()
+        await client.disconnect()
         logging.info(f"Messages sent: {result}")
         return result

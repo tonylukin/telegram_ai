@@ -14,19 +14,19 @@ from app.services.telegram.clients_creator import ClientsCreator, get_telegram_c
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
 
-class ChannelMessageSender:
+class NewMessageChannelMessageSender:
     def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends(get_telegram_clients_to_comment)):
         self.ai_client = ai_client
         self.channels_configs = TELEGRAM_CHANNELS_TO_COMMENT
         self.clients_creator = clients_creator
         self.clients = []
 
-    async def start_messaging(self):
+    async def send_comments_on_new_messages(self):
         clients = await self.clients_creator.create_clients()
-        await asyncio.gather(*(self.start_client(client) for client in clients))
+        await asyncio.gather(*(self.__start_client(client) for client in clients))
         await asyncio.gather(*(client.run_until_disconnected() for client in clients))
 
-    async def start_client(self, client: TelegramClient):
+    async def __start_client(self, client: TelegramClient):
         await client.start()
         channel_usernames = list(self.channels_configs.keys())
         logging.info(f"✅ Started client: {client.session} for channels: {channel_usernames}")
