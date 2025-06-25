@@ -1,10 +1,10 @@
 from abc import abstractmethod, ABC
-from typing import TypedDict, List
+from typing import TypedDict
 
 class NewsItem(TypedDict):
     text: str
 
 class NewsMakerBase(ABC):
     @abstractmethod
-    def get_news(self, count: int) -> List[NewsItem]:
+    def get_news(self, count: int = None) -> list[NewsItem]:
         pass

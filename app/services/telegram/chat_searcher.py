@@ -1,6 +1,7 @@
-from telethon.tl.types import Channel
 from telethon import TelegramClient, functions, types
 from telethon.tl.functions.contacts import SearchRequest
+from telethon.tl.types import Channel
+
 
 class ChatSearcher:
 

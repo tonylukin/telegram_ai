@@ -1,10 +1,13 @@
-from app.services.news.news_maker_base import NewsMakerBase, NewsItem
 import requests
+
 from app.config import NEWS_API_ORG_API_KEY
-from typing import List
+from app.services.news.news_maker_base import NewsMakerBase, NewsItem
+
 
 class NewsApiClient(NewsMakerBase):
-    def get_news(self, count: int) -> List:
+    def get_news(self, count: int = None) -> list[NewsItem]:
+        if count is None:
+            count = 10
         url = f"https://newsapi.org/v2/everything?apiKey={NEWS_API_ORG_API_KEY}&language=ru&sources=lenta&sortBy=publishedAt&pageSize={count}&page=1"
         response = requests.get(url)
         data = response.json()

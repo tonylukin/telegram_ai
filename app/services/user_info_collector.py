@@ -3,15 +3,16 @@ from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import Message, User
 
+from app.config import AI_USER_INFO_PROMPT
+from app.configs.logger import logging
 from app.db.session import Session
-from app.models.tg_user_comment import TgUserComment
 from app.models.tg_user import TgUser
+from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_react
 from app.services.telegram.user_messages_search import UserMessagesSearch
-from app.configs.logger import logging
-from app.config import AI_USER_INFO_PROMPT
+
 
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
@@ -41,7 +42,7 @@ class UserInfoCollector:
             user = None
             for chat_name in channel_usernames:
                 try:
-                    chat = await client.get_entity(chat_name)
+                    chat = await client.get_entity(chat_name) # todo get info from broadcast -> to linked group (app/services/telegram/user_inviter.py::75)
                     async for msg in client.iter_messages(chat, limit=5000):
                         if isinstance(msg, Message) and msg.sender:
                             full_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip().lower()

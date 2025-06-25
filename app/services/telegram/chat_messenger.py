@@ -1,25 +1,24 @@
-from telethon import TelegramClient
-from telethon.tl.types import Channel, User
-from telethon.tl.functions.contacts import SearchRequest
-from telethon.tl.functions.messages import SendMessageRequest
-from telethon.tl.functions.channels import GetParticipantsRequest, JoinChannelRequest
-from telethon.tl.types import ChannelParticipantsSearch
 import asyncio
-from fastapi.params import Depends
-from app.configs.logger import logging
 import random
 
+from fastapi.params import Depends
+from telethon import TelegramClient
+from telethon.errors import UserNotParticipantError, ChannelPrivateError
+from telethon.tl.functions.channels import GetParticipantRequest
+from telethon.tl.functions.channels import GetParticipantsRequest, JoinChannelRequest
+from telethon.tl.functions.messages import SendMessageRequest
+from telethon.tl.types import Channel, User
+from telethon.tl.types import ChannelParticipantsSearch
+
+from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS
+from app.configs.logger import logging
 from app.db.queries.bot import get_bot
-from app.db.queries.bot_comment import get_bot_comments, get_channel_comments
+from app.db.queries.bot_comment import get_channel_comments
 from app.db.session import Session
 from app.models.bot_comment import BotComment
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
-from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS
 from app.services.text_maker import TextMakerDependencyConfig
-from telethon.tl.types import ChannelParticipantSelf
-from telethon.tl.functions.channels import GetParticipantRequest
-from telethon.errors import UserNotParticipantError, ChannelPrivateError
 
 
 class ChatMessenger:
@@ -42,7 +41,7 @@ class ChatMessenger:
         self.message = None
 
     @staticmethod
-    async def has_antispam_bot(chat: Channel, client: TelegramClient) -> bool:
+    async def has_antispam_bot(chat: Channel, client: TelegramClient) -> bool: #todo to helpers
         try:
             participants = await client(GetParticipantsRequest(
                 channel=chat,
@@ -62,7 +61,7 @@ class ChatMessenger:
         return False
 
     @staticmethod
-    async def is_user_in_group(client, chat) -> bool:
+    async def is_user_in_group(client, chat) -> bool: #todo to helpers
         try:
             result = await client(GetParticipantRequest(channel=chat, participant='me'))
             return True

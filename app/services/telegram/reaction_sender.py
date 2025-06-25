@@ -2,13 +2,15 @@ import asyncio
 import random
 
 from fastapi.params import Depends
-from telethon.tl.types import Channel, PeerChannel
-from telethon.tl.functions.messages import SendReactionRequest
-from telethon.tl.types import ReactionEmoji
 from telethon import TelegramClient
+from telethon.tl.functions.messages import SendReactionRequest
+from telethon.tl.types import Channel, PeerChannel
+from telethon.tl.types import ReactionEmoji
+
+from app.configs.logger import logging
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_react
-from app.configs.logger import logging
+
 
 class ReactionSender:
     MAX_REACTIONS_PER_CHAT = 5

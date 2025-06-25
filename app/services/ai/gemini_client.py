@@ -1,10 +1,13 @@
-from app.services.ai.ai_client_base import AiClientBase
+import base64
+from io import BytesIO
+
 # from google import genai
 import google.generativeai as genai
-from app.config import GEMINI_API_KEY
 from PIL import Image
-from io import BytesIO
-import base64
+
+from app.config import GEMINI_API_KEY
+from app.services.ai.ai_client_base import AiClientBase
+
 
 class GeminiClient(AiClientBase):
     def __init__(self):

@@ -1,8 +1,10 @@
 import base64
 
-from app.services.ai.ai_client_base import AiClientBase
 import requests
+
 from app.config import HUGGING_FACE_API_KEY
+from app.services.ai.ai_client_base import AiClientBase
+
 
 class HuggingFaceClient(AiClientBase):
     def generate_image(self, prompt: str) -> str|None:

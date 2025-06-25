@@ -1,20 +1,21 @@
+import asyncio
+import random
+
 from fastapi.params import Depends
 from telethon import TelegramClient
-import asyncio
-
+from telethon.tl.functions.channels import InviteToChannelRequest, GetFullChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
+from telethon.tl.types import PeerChannel
 
-from app.configs.logger import logging
+from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO
+from app.configs.logger import logging, logger
 from app.db.queries.bot import get_bot
 from app.db.queries.tg_user_invited import get_invited_users
 from app.db.session import Session
 from app.models.tg_user_invited import TgUserInvited
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_telegram_clients_to_invite
-import random
-from telethon.tl.functions.channels import InviteToChannelRequest
-from telethon.tl.functions.channels import GetParticipantsRequest
-from telethon.tl.types import ChannelParticipantsSearch, User, PeerChannel
+from app.services.telegram.helpers import join_chats
 
 
 class UserInviter:
@@ -26,17 +27,17 @@ class UserInviter:
         self.clients = []
         self.invitedUsers = set()
         self.session = Session()
-        self.source_channel = '@pravdadirty'
-        self.target_channel = '@news_luxury_narrator'
+        self.source_channels = TELEGRAM_CHATS_TO_INVITE_FROM #todo pass to constructor in future
+        self.target_channels = TELEGRAM_CHATS_TO_INVITE_TO
 
     async def invite_users_from_comments(self) -> list[dict[str, int]]:
         clients = await self.clients_creator.create_clients()
 
         return await asyncio.gather(
-            *(self.__start_client(client) for client in clients)
+            *(self.__start_client(client, self.source_channels) for client in clients)
         )
 
-    async def __start_client(self, client: TelegramClient) -> dict[str, int]:
+    async def __start_client(self, client: TelegramClient, channels: list[str]) -> dict[str, int]:
         await client.start()
         logging.info(f"{client.session.filename} started")
 
@@ -45,50 +46,82 @@ class UserInviter:
             logging.error('Bot not found')
             return {}
 
+        random.shuffle(channels)
+        await join_chats(client, channels)
+
+        target_channel = random.choice(self.target_channels)
+        if not target_channel:
+            logger.error('No target channel')
+            return {}
+
         invited = 0
-        me = await client.get_me()
-        messages = await client.get_messages(self.source_channel, limit=self.MAX_USERS * 3)
-        logging.info(f"Logged in as {me.username or me.id}")
-
-        for msg in messages:
-            if not msg.replies:
-                continue
+        messages_by_channel = {}
+        channel_entities = {}
+        for channel in channels:
             try:
-                discussion = await client(GetDiscussionMessageRequest(
-                    peer=self.source_channel,
-                    msg_id=msg.id
-                ))
-                discussion_channel_id = discussion.messages[0].peer_id.channel_id
-                discussion_peer = PeerChannel(discussion_channel_id)
-                comments = await client.get_messages(discussion_peer, limit=self.MAX_USERS * 4)
-
-                for comment in comments:
-                    user = await client.get_entity(comment.sender_id)
-                    invited_user = get_invited_users(tg_user_id=user.id, channel=self.target_channel)
-                    if user.is_self or user.bot or invited >= self.MAX_USERS or user.id in self.invitedUsers or invited_user is not None:
+                channel_entity = await client.get_entity(channel)
+                if channel_entity.broadcast:
+                    full = await client(GetFullChannelRequest(channel))
+                    linked_chat_id = full.full_chat.linked_chat_id
+                    if not linked_chat_id:
+                        logger.error(f"{channel} does not have a full chat")
                         continue
-                    self.invitedUsers.add(user.id)
 
                     try:
-                        await client(InviteToChannelRequest(
-                            channel=self.target_channel,
-                            users=[user]
-                        ))
-                        logging.info(f"✅ Invited {user.username or user.id}")
-                        invited += 1
+                        messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=self.MAX_USERS * 3)
                     except Exception as e:
-                        logging.error(f"❌ Could not invite {user.username or user.id}: {e}")
-
-                    tg_user_invited = TgUserInvited(
-                        tg_user_id=user.id,
-                        tg_username=user.username,
-                        channel=self.target_channel,
-                    )
-                    self.session.add(tg_user_invited)
-                    await asyncio.sleep(random.randint(*self.DELAY_RANGE))
-
+                        logger.error(f"Error {channel} [{linked_chat_id}]: {e}")
+                        continue
+                    channel_entities[channel] = await client.get_entity(linked_chat_id)
+                else:
+                    messages_by_channel[channel] = await client.get_messages(channel, limit=self.MAX_USERS * 3)
+                    channel_entities[channel] = channel_entity
             except Exception as e:
-                logging.error(f"⚠️ Error getting discussion: {e}")
+                logging.error(f"⚠️ Error getting channel messages: {e}")
+
+        for channel, messages in messages_by_channel.items():
+            for msg in messages:
+                if not msg.replies or channel_entities[channel] is None:
+                    continue
+                try:
+                    discussion = await client(GetDiscussionMessageRequest(
+                        peer=channel_entities[channel],
+                        msg_id=msg.id
+                    ))
+                    discussion_channel_id = discussion.messages[0].peer_id.channel_id
+                    discussion_peer = PeerChannel(discussion_channel_id)
+                    comments = await client.get_messages(discussion_peer, limit=self.MAX_USERS * 4)
+
+                    for comment in comments:
+                        user = await client.get_entity(comment.sender_id)
+                        invited_user = get_invited_users(tg_user_id=user.id, channel=target_channel)
+                        if user.is_self or user.bot or invited >= self.MAX_USERS or user.id in self.invitedUsers or invited_user is not None:
+                            continue
+                        self.invitedUsers.add(user.id)
+
+                        try:
+                            await asyncio.sleep(random.randint(*self.DELAY_RANGE))
+                            await client(InviteToChannelRequest(
+                                channel=target_channel,
+                                users=[user]
+                            ))
+                            logging.info(f"✅ Invited {user.username or user.id}")
+                            invited += 1
+                        except Exception as e:
+                            logging.error(f"❌ Could not invite {user.username or user.id}: {e}")
+                            continue
+
+                        tg_user_invited = TgUserInvited(
+                            tg_user_id=user.id,
+                            tg_username=user.username,
+                            channel=target_channel,
+                            channel_from=channel,
+                            bot_id=bot.id,
+                        )
+                        self.session.add(tg_user_invited)
+
+                except Exception as e:
+                    logging.error(f"⚠️ Error getting discussion: {e}")
 
         try:
             self.session.commit()

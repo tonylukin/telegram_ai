@@ -3,17 +3,18 @@ import random
 
 from fastapi.params import Depends
 from telethon import TelegramClient
+from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import Channel, PeerChannel, Message, MessageService
 
 from app.config import AI_POST_TEXT_TO_CHANNELS
+from app.configs.logger import logging
 from app.db.queries.bot import get_bot
 from app.db.queries.bot_comment import get_channel_comments
 from app.db.session import Session
-from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
-from app.services.text_maker import TextMakerDependencyConfig
-from app.configs.logger import logging
-from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from app.models.bot_comment import BotComment
+from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
+from app.services.telegram.helpers import join_chats
+from app.services.text_maker import TextMakerDependencyConfig
 
 
 class AssignedChannelsMessenger:
@@ -29,9 +30,10 @@ class AssignedChannelsMessenger:
         self.chat_names = None
         self.message = None
 
-    async def send_messages_to_assigned_channels(self, message: str) -> list[dict[str, int]]:
+    async def send_messages_to_assigned_channels(self, message: str, names: list[str] = None) -> list[dict[str, int]]:
         clients = await self.clients_creator.create_clients()
         self.message = message
+        self.chat_names = names
 
         return await asyncio.gather(
             *(self.__start_client(client) for client in clients)
@@ -47,8 +49,15 @@ class AssignedChannelsMessenger:
             return {}
 
         result = {}
+
+        if self.chat_names is not None:
+            await join_chats(client, self.chat_names)
+
         async for dialog in client.iter_dialogs():
             chat = dialog.entity
+
+            if self.chat_names is not None and chat.username not in self.chat_names:
+                continue
 
             if not isinstance(chat, Channel):
                 continue
@@ -114,4 +123,3 @@ class AssignedChannelsMessenger:
         await client.disconnect()
         logging.info(f"Messages sent: {result}")
         return {client.session.filename: result}
-

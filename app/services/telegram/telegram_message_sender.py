@@ -1,9 +1,11 @@
 import base64
 from io import BytesIO
-from app.configs.logger import logging
 
 import requests
+
 from app.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
+from app.configs.logger import logging
+
 
 def send_telegram_message(message: str, image: str) -> bool:
     if image is not None:

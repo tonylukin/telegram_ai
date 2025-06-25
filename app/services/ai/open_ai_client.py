@@ -1,8 +1,11 @@
-from app.services.ai.ai_client_base import AiClientBase
-from app.config import OPENAI_API_KEY
-import openai
 import base64
+
+import openai
 import requests
+
+from app.config import OPENAI_API_KEY
+from app.services.ai.ai_client_base import AiClientBase
+
 
 class OpenAiClient(AiClientBase):
     def __init__(self):

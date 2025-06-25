@@ -1,9 +1,10 @@
-from app.services.ai.ai_client_base import AiClientBase
-from diffusers import StableDiffusionPipeline
-from diffusers import DiffusionPipeline
-import torch
 import base64
 import io
+
+from diffusers import DiffusionPipeline
+
+from app.services.ai.ai_client_base import AiClientBase
+
 
 class StableDiffusion(AiClientBase):
     def __init__(self):

@@ -1,5 +1,7 @@
-from telethon import TelegramClient
 from typing import List
+
+from telethon import TelegramClient
+
 from app.config import TELEGRAM_USERS_TO_REACT, TELEGRAM_USERS_TO_COMMENT, TELEGRAM_USERS_TO_INVITE
 
 

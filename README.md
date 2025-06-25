@@ -12,7 +12,7 @@ PYTHONPATH=. python3 app/console/reaction_sender_command.py
 
 ### Run script to generate news
 ```bash
-curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-texts' \
+curl -X 'POST' 'http://127.0.0.1:8000/news/generate-texts' \
      -H 'Content-Type: application/json' \
      -d '{"count": 2}'
 ```
@@ -42,6 +42,13 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-comments' \
 curl -X 'POST' 'http://127.0.0.1:8000/chat/invite-users' \
      -H 'Content-Type: application/json' \
      -d '{}'
+```
+
+### Get info by username
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/user-info/collect' \
+     -H 'Content-Type: application/json' \
+     -d '{"username": "", "chats": [""]}'
 ```
 
 ### Killing fastAPI debugger

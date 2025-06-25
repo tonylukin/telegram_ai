@@ -2,39 +2,14 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
+from pydantic import BaseModel
 
 from app.services.telegram.assigned_channels_messenger import AssignedChannelsMessenger
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.reaction_sender import ReactionSender
-from app.services.telegram.telegram_message_sender import send_telegram_message
 from app.services.telegram.user_inviter import UserInviter
-from app.services.telegram.user_messages_search import UserMessagesSearch
-from app.services.text_maker import TextMaker, TextMakerDependencyConfig
-from pydantic import BaseModel
-
-from app.services.user_info_collector import UserInfoCollector
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
-
-class GenerateTextBody(BaseModel):
-    count: int
-
-@router.post("/generate-texts")
-def generate_texts(body: GenerateTextBody, config: TextMakerDependencyConfig = Depends()):
-    try:
-        count = body.count or 1
-        text_maker = TextMaker(config)
-        texts = text_maker.create_texts(count = count)
-        result = True
-        for text in texts:
-            view = f"<strong>{text['person']} читает новость</strong> \n\n"
-            view += f"{text['generated']}\n"
-            view += f"<blockquote>{text['original']}</blockquote>"
-            result &= send_telegram_message(view, text['image'])
-
-        return {"status": "ok" if result else "error", "count": len(texts)}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 class GenerateReactionsBody(BaseModel):
     query: Optional[str] = None
@@ -62,7 +37,7 @@ async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMess
 @router.post("/generate-comments")
 async def generate_comments(body: GenerateMessagesBody, assigned_channels_messenger: AssignedChannelsMessenger = Depends()):
     try:
-        result = await assigned_channels_messenger.send_messages_to_assigned_channels(message=body.message)
+        result = await assigned_channels_messenger.send_messages_to_assigned_channels(names=body.names, message=body.message)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -74,21 +49,3 @@ async def invite_users(user_inviter: UserInviter = Depends()):
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-class UserInfoBody(BaseModel):
-    username: str
-    chats: Optional[list[str]] = None
-
-@router.post("/info")
-async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector = Depends()):
-    try:
-        result = await user_info_collector.get_user_info(username=body.username, channel_usernames=body.chats)
-        return {"status": "ok", "result": result}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/test-text-maker")
-def test_text_maker(config: TextMakerDependencyConfig = Depends()):
-    text_maker = TextMaker(config)
-    text = text_maker.create_texts()
-    return {"test": text}
