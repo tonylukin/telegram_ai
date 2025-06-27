@@ -24,7 +24,7 @@ class ReactionSender:
         self.query = None
         self.reaction = None
 
-    async def send_reactions_to_my_chats(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __send_reactions_to_my_chats(self, client: TelegramClient) -> dict[str, dict[str, int]]:
         me = await client.get_me()
         dialogs = await client.get_dialogs()
         logging.info(f"Dialogs found: {len(dialogs)}")
@@ -65,7 +65,7 @@ class ReactionSender:
 
         return {client.session.filename: counter}
 
-    async def make_reactions_for_chat(self, client: TelegramClient, chat: Channel) -> dict[str, dict[str, int]]:
+    async def __make_reactions_for_chat(self, client: TelegramClient, chat: Channel) -> dict[str, dict[str, int]]:
         counter = {}
         try:
             logging.info(f"🧭 Sending reaction for: {chat.title}")
@@ -101,12 +101,12 @@ class ReactionSender:
 
         return {client.session.filename: counter}
 
-    async def search_chats(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __search_chats(self, client: TelegramClient) -> dict[str, dict[str, int]]:
         chats = await self.chat_searcher.search_chats(client, self.query)
         logging.info(f"Found {len(chats)} chats")
         result = {}
         for chat in chats:
-            result.update(await self.make_reactions_for_chat(client=client, chat=chat))
+            result.update(await self.__make_reactions_for_chat(client=client, chat=chat))
 
         return result
 
@@ -114,9 +114,9 @@ class ReactionSender:
         await client.start()
         logging.info(f"{client.session.filename} started")
         if self.query is not None:
-            result = await self.search_chats(client=client)
+            result = await self.__search_chats(client=client)
         else:
-            result = await self.send_reactions_to_my_chats(client=client)
+            result = await self.__send_reactions_to_my_chats(client=client)
 
         await client.disconnect()
         logging.info(f"Reactions found: {result}")
@@ -125,6 +125,6 @@ class ReactionSender:
     async def send_reactions(self, query: str = None, reaction: str = None) -> list[dict[str, int]]:
         self.query = query
         self.reaction = reaction
-        clients = await self.clients_creator.create_clients()
+        clients = self.clients_creator.create_clients_from_bots()
         return await asyncio.gather(*(self.__start_client(client) for client in clients))
         # await asyncio.gather(*(client.run_until_disconnected() for client in self.clients))

@@ -3,11 +3,12 @@ import re
 from urllib.parse import urlparse
 
 from telethon import TelegramClient
-from telethon.errors import UserAlreadyParticipantError, FloodWaitError
-from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest
+from telethon.errors import UserAlreadyParticipantError, FloodWaitError, UserNotParticipantError, ChannelPrivateError
+from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest, GetParticipantRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
 from telethon.tl.types import PeerChannel
 from telethon.types import User
+from telethon.tl.types import Channel, Chat
 
 from app.configs.logger import logger
 
@@ -46,8 +47,10 @@ async def join_chats(client: TelegramClient, chats_to_join: list[str]):
                 continue
 
             if kind == 'public':
-                await client(JoinChannelRequest(identifier))
                 full = await client(GetFullChannelRequest(identifier))
+                if await is_user_in_group(client, full.full_chat):
+                    continue
+                await client(JoinChannelRequest(identifier))
                 linked_chat_id = full.full_chat.linked_chat_id
                 if linked_chat_id:
                     await client(JoinChannelRequest(PeerChannel(linked_chat_id)))
@@ -67,3 +70,13 @@ async def join_chats(client: TelegramClient, chats_to_join: list[str]):
             await asyncio.sleep(e.seconds)
         except Exception as e:
             logger.error(f"❌ Error joining {link}: {e}")
+
+
+async def is_user_in_group(client: TelegramClient, chat: Channel|Chat) -> bool:
+    try:
+        result = await client(GetParticipantRequest(channel=chat, participant='me'))
+        return True
+    except UserNotParticipantError:
+        return False
+    except ChannelPrivateError:
+        return False

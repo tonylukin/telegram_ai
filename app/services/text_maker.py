@@ -12,7 +12,7 @@ from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.services.ai.open_ai_client import OpenAiClient
 from app.services.news.news_api_client import NewsApiClient
-from app.services.news.news_maker_base import NewsMakerBase
+from app.services.news.news_maker_base import NewsMakerBase, NewsItem
 
 
 def get_news_maker() -> NewsMakerBase:
@@ -56,30 +56,17 @@ class TextMaker:
         self.session = Session()
         self.persons = config.persons
 
-    def create_texts(self, count: int = None, person: str = None) -> List[Response]:
+    def create_texts(self, count: int = None, person: str = None) -> list[Response]:
         news_list = self.news_maker.get_news(count)
 
         if count is None:
-            try:
-                news_texts = list(map(lambda news_item: news_item.get('text'), news_list))
-                by_person = person or random.choice(self.persons)
-                text = self.ai_client.generate_text(AI_MASS_NEWS_POST_TEXT.format(news_items=news_texts, by_person=by_person))
-                external_id = hashlib.md5(text.encode()).hexdigest()
-                if self.get_post_by_external_id(external_id) is not None:
-                    logging.info(f'Skipping {text} \'{external_id}\' exists')
-            except Exception as e:
-                logging.error(e)
-                return []
-
-            response = Response(generated=text, person=by_person, original='\n\n'.join(news_texts), image=None)
-            self.__save_to_db(response, external_id)
-            return [response]
+            return self.__create_compound_text(news_list, person)
 
         response_list = []
         for news in news_list:
             news_text = news.get('text')
-            external_id = hashlib.md5(news_text.encode()).hexdigest()
-            if self.get_post_by_external_id(external_id) is not None:
+            external_id = TextMaker.__generate_external_id(news_text)
+            if self.__get_post_by_external_id(external_id) is not None:
                 logging.info(f'Skipping {news_text} \'{external_id}\' exists')
                 continue
 
@@ -98,7 +85,40 @@ class TextMaker:
 
         return response_list
 
-    def get_post_by_external_id(self, external_id: str) -> NewsPost | None:
+    def __create_compound_text(self, news_list: list[NewsItem], person: str = None) -> list[Response]:
+        def is_new_news_item(news_item: NewsItem):
+            news_item_external_id = TextMaker.__generate_external_id(news_item['text'])
+            return self.__get_post_by_external_id(news_item_external_id) is None
+
+        try:
+            news_texts = list(
+                map(
+                    lambda news_item: news_item.get('text'),
+                    filter(is_new_news_item, news_list)
+                )
+            )
+            by_person = person or random.choice(self.persons)
+            text = self.ai_client.generate_text(
+                AI_MASS_NEWS_POST_TEXT.format(news_items=news_texts, by_person=by_person)
+            )
+
+            original = '\n\n'.join(news_texts)
+            external_id = TextMaker.__generate_external_id(original)
+            if self.__get_post_by_external_id(external_id) is not None:
+                logging.info(f'Skipping {text} \'{external_id}\' exists')
+        except Exception as e:
+            logging.error(e)
+            return []
+
+        response = Response(generated=text, person=by_person, original=original, image=None)
+        self.__save_to_db(response, external_id)
+        return [response]
+
+    @staticmethod
+    def __generate_external_id(text: str) -> str:
+        return hashlib.md5(text.encode()).hexdigest()
+
+    def __get_post_by_external_id(self, external_id: str) -> NewsPost | None:
         return self.session.query(NewsPost).filter_by(external_id=external_id).first()
 
     def __save_to_db(self, response: Response, external_id: str):

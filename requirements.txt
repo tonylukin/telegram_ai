@@ -13,3 +13,5 @@ SQLAlchemy~=2.0.40
 alembic~=1.15.2
 protobuf~=6.30.2
 punq~=0.7.0
+aiohttp~=3.12.13
+python-telegram-bot>=20.0

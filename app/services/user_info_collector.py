@@ -1,16 +1,18 @@
 from fastapi.params import Depends
 from telethon import TelegramClient
+from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import Message, User
+from telethon.tl.types import Message, User, PeerChannel
 
 from app.config import AI_USER_INFO_PROMPT
-from app.configs.logger import logging
+from app.configs.logger import logger
 from app.db.session import Session
 from app.models.tg_user import TgUser
 from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
-from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_react
+from app.services.telegram.clients_creator import ClientsCreator, \
+    get_telegram_clients_for_human_scanner
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
 
@@ -20,7 +22,7 @@ def get_ai_client() -> AiClientBase:
 class UserInfoCollector:
     def __init__(
             self,
-            clients_creator: ClientsCreator = Depends(get_telegram_clients_to_react),
+            clients_creator: ClientsCreator = Depends(get_telegram_clients_for_human_scanner),
             ai_client: AiClientBase = Depends(get_ai_client),
     ):
         self.clients_creator = clients_creator
@@ -28,7 +30,7 @@ class UserInfoCollector:
         self.session = Session()
 
     async def __init_client(self) -> TelegramClient:
-        clients = await self.clients_creator.create_clients()
+        clients = self.clients_creator.create_clients_from_bots()
         client = clients[0]
         await client.start()
         return client
@@ -43,16 +45,27 @@ class UserInfoCollector:
             for chat_name in channel_usernames:
                 try:
                     chat = await client.get_entity(chat_name) # todo get info from broadcast -> to linked group (app/services/telegram/user_inviter.py::75)
+                    linked_chat_id = None
+                    if chat.broadcast:
+                        full = await client(GetFullChannelRequest(chat))
+                        linked_chat_id = full.full_chat.linked_chat_id
+                        if not linked_chat_id:
+                            logger.error(f"{chat} does not have a full chat")
+                            continue
+                        chat = PeerChannel(linked_chat_id)
+
                     async for msg in client.iter_messages(chat, limit=5000):
-                        if isinstance(msg, Message) and msg.sender:
+                        if isinstance(msg, Message) and msg.sender and isinstance(msg.sender, User):
                             full_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip().lower()
                             if username.lower() in full_name:
                                 user = msg.sender
+                                if linked_chat_id is not None:
+                                    channel_usernames.append(msg.chat.username) #adding linked chat to list along with the broadcast
                                 break
                     if user:
                         break
                 except Exception as e:
-                    logging.error(f"⚠️ Search error {chat_name}: {e}")
+                    logger.error(f"⚠️ Search error {chat_name}: {e}")
 
             if not user:
                 raise ValueError(f"❌ User not found '{username}' in these channels: {channel_usernames}.")
@@ -61,7 +74,7 @@ class UserInfoCollector:
             full = await client(GetFullUserRequest(user.id))
         except Exception as e:
             full = None
-            logging.error(f"Could not find info for {username}: {e}")
+            logger.error(f"Could not find info for {username}: {e}")
 
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
         comments_by_channel = await UserMessagesSearch.get_user_comments(client=client, channel_usernames=channel_usernames, user=user)
@@ -109,6 +122,8 @@ class UserInfoCollector:
 
             for channel, comments in comments_by_channel.items():
                 for comment in comments:
+                    if not comment:
+                        continue
                     tg_user_comment = TgUserComment(
                         user_id=user_found.id,
                         comment=comment,
@@ -118,6 +133,6 @@ class UserInfoCollector:
             self.session.commit()
         except Exception as e:
             self.session.rollback()
-            logging.error(e)
+            logger.error(e)
         finally:
             self.session.close()

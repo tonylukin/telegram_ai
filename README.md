@@ -11,10 +11,17 @@ PYTHONPATH=. python3 app/console/reaction_sender_command.py
 ```
 
 ### Run script to generate news
+- First with some count:
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/news/generate-texts' \
      -H 'Content-Type: application/json' \
      -d '{"count": 2}'
+```
+- Then with no count:
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/news/generate-texts' \
+     -H 'Content-Type: application/json' \
+     -d '{}'
 ```
 
 ### Run script to generate reactions

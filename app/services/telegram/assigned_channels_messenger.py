@@ -31,7 +31,7 @@ class AssignedChannelsMessenger:
         self.message = None
 
     async def send_messages_to_assigned_channels(self, message: str, names: list[str] = None) -> list[dict[str, int]]:
-        clients = await self.clients_creator.create_clients()
+        clients = self.clients_creator.create_clients_from_bots()
         self.message = message
         self.chat_names = names
 

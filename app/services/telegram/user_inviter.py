@@ -30,14 +30,16 @@ class UserInviter:
         self.source_channels = TELEGRAM_CHATS_TO_INVITE_FROM #todo pass to constructor in future
         self.target_channels = TELEGRAM_CHATS_TO_INVITE_TO
 
-    async def invite_users_from_comments(self) -> list[dict[str, int]]:
-        clients = await self.clients_creator.create_clients()
+    async def invite_users_from_comments(self, count: int = None) -> list[dict[str, int]]:
+        clients = self.clients_creator.create_clients_from_bots()
+        if count is None:
+            count = UserInviter.MAX_USERS
 
         return await asyncio.gather(
-            *(self.__start_client(client, self.source_channels) for client in clients)
+            *(self.__start_client(client, self.source_channels, self.target_channels, count) for client in clients)
         )
 
-    async def __start_client(self, client: TelegramClient, channels: list[str]) -> dict[str, int]:
+    async def __start_client(self, client: TelegramClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
         await client.start()
         logging.info(f"{client.session.filename} started")
 
@@ -49,7 +51,7 @@ class UserInviter:
         random.shuffle(channels)
         await join_chats(client, channels)
 
-        target_channel = random.choice(self.target_channels)
+        target_channel = random.choice(target_channels)
         if not target_channel:
             logger.error('No target channel')
             return {}
@@ -68,13 +70,13 @@ class UserInviter:
                         continue
 
                     try:
-                        messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=self.MAX_USERS * 3)
+                        messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count)
                     except Exception as e:
                         logger.error(f"Error {channel} [{linked_chat_id}]: {e}")
                         continue
                     channel_entities[channel] = await client.get_entity(linked_chat_id)
                 else:
-                    messages_by_channel[channel] = await client.get_messages(channel, limit=self.MAX_USERS * 3)
+                    messages_by_channel[channel] = await client.get_messages(channel, limit=count)
                     channel_entities[channel] = channel_entity
             except Exception as e:
                 logging.error(f"⚠️ Error getting channel messages: {e}")
@@ -90,12 +92,12 @@ class UserInviter:
                     ))
                     discussion_channel_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_channel_id)
-                    comments = await client.get_messages(discussion_peer, limit=self.MAX_USERS * 4)
+                    comments = await client.get_messages(discussion_peer, limit=count)
 
                     for comment in comments:
                         user = await client.get_entity(comment.sender_id)
                         invited_user = get_invited_users(tg_user_id=user.id, channel=target_channel)
-                        if user.is_self or user.bot or invited >= self.MAX_USERS or user.id in self.invitedUsers or invited_user is not None:
+                        if user.is_self or user.bot or invited >= count or user.id in self.invitedUsers or invited_user is not None:
                             continue
                         self.invitedUsers.add(user.id)
 
@@ -108,7 +110,7 @@ class UserInviter:
                             logging.info(f"✅ Invited {user.username or user.id}")
                             invited += 1
                         except Exception as e:
-                            logging.error(f"❌ Could not invite {user.username or user.id}: {e}")
+                            logging.error(f"❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
                             continue
 
                         tg_user_invited = TgUserInvited(

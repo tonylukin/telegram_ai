@@ -19,6 +19,7 @@ from app.models.bot_comment import BotComment
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
 from app.services.text_maker import TextMakerDependencyConfig
+from app.services.telegram.helpers import is_user_in_group
 
 
 class ChatMessenger:
@@ -61,16 +62,6 @@ class ChatMessenger:
         return False
 
     @staticmethod
-    async def is_user_in_group(client, chat) -> bool: #todo to helpers
-        try:
-            result = await client(GetParticipantRequest(channel=chat, participant='me'))
-            return True
-        except UserNotParticipantError:
-            return False
-        except ChannelPrivateError:
-            return False
-
-    @staticmethod
     async def send_message(client: TelegramClient, chat: Channel, message: str) -> bool:
         try:
             await client(SendMessageRequest(
@@ -88,7 +79,7 @@ class ChatMessenger:
         if self.chat_names is None:
             self.chat_names = TELEGRAM_CHATS_TO_POST
         self.message = message
-        clients = await self.clients_creator.create_clients()
+        clients = self.clients_creator.create_clients_from_bots()
 
         chat_names = self.chat_names[:]
         random.shuffle(chat_names)
@@ -125,8 +116,8 @@ class ChatMessenger:
             if await self.has_antispam_bot(chat=chat, client=client):
                 logging.info(f"{chat.title} has antispam bot")
                 continue
-            if not await self.is_user_in_group(client, chat):
-                logging.error(f"🚪 Not in chat. Joining {chat.title}")
+            if not await is_user_in_group(client, chat):
+                logging.info(f"🚪 Not in chat. Joining {chat.title}")
                 await client(JoinChannelRequest(chat))
                 await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
