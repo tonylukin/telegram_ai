@@ -43,15 +43,10 @@ jobs:
           username: ${{ vars.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            docker pull ${{ env.DOCKER_IMAGE }}
+            mkdir -p /home/telegram_ai
+            cd /home/telegram_ai
+            echo "${{ secrets.DOTENV_FILE }}" > .env
 
-            echo "${{ secrets.DOTENV_FILE }}" > /home/anton/app-data/.env
-
-            docker stop telegram_bot || true
-            docker rm telegram_bot || true
-
-            docker run -d \
-              --env-file /home/telegram_ai/app-data/.env \
-              -v /home/telegram_ai/app-data:/app \
-              --name telegram_ai \
-              ${{ env.DOCKER_IMAGE }}
+            docker compose pull
+            docker compose down
+            docker compose up -d --remove-orphans

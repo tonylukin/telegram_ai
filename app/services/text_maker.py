@@ -23,7 +23,6 @@ def get_ai_client() -> AiClientBase:
     return GeminiClient()
 
 def get_ai_client_images() -> AiClientBase:
-    # return StableDiffusion()
     # return HuggingFaceClient()
     return OpenAiClient()
 
