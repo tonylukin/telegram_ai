@@ -11,6 +11,7 @@ class TgUser(Base):
     nickname = Column(String, nullable=True)
     description = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, nullable=True, onupdate=func.now(), default=func.now())
 
     __table_args__ = (
         Index("ix_tg_users_nickname", "nickname"),

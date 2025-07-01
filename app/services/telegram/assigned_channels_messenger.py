@@ -11,8 +11,9 @@ from app.configs.logger import logging
 from app.db.queries.bot import get_bot
 from app.db.queries.bot_comment import get_channel_comments
 from app.db.session import Session
+from app.dependencies import get_db
 from app.models.bot_comment import BotComment
-from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment
 from app.services.telegram.helpers import join_chats
 from app.services.text_maker import TextMakerDependencyConfig
 
@@ -20,18 +21,19 @@ from app.services.text_maker import TextMakerDependencyConfig
 class AssignedChannelsMessenger:
     def __init__(
             self,
-            clients_creator: ClientsCreator = Depends(get_telegram_clients_to_comment),
+            clients_creator: ClientsCreator = Depends(),
             config: TextMakerDependencyConfig = Depends(TextMakerDependencyConfig),
+            session: Session = Depends(get_db)
     ):
         self.clients = []
         self.clients_creator = clients_creator
         self.ai_client = config.ai_client
-        self.session = Session()
+        self.session = session
         self.chat_names = None
         self.message = None
 
     async def send_messages_to_assigned_channels(self, message: str, names: list[str] = None) -> list[dict[str, int]]:
-        clients = self.clients_creator.create_clients_from_bots()
+        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
         self.message = message
         self.chat_names = names
 
@@ -43,7 +45,7 @@ class AssignedChannelsMessenger:
         await client.start()
         logging.info(f"{client.session.filename} started")
 
-        bot = get_bot(client)
+        bot = get_bot(session=self.session, client=client)
         if bot is None:
             logging.error('Bot not found')
             return {}
@@ -65,7 +67,7 @@ class AssignedChannelsMessenger:
                 logging.info(f"{chat.title} is not a channel")
                 continue
 
-            comments = get_channel_comments(channel=chat.title)
+            comments = get_channel_comments(self.session, channel=chat.title)
             if comments:
                 logging.info(f"{chat.title}: has recent comments, skipping")
                 continue

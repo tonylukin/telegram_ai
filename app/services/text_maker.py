@@ -7,6 +7,7 @@ from fastapi.params import Depends
 from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, AI_MASS_NEWS_POST_TEXT
 from app.configs.logger import logging
 from app.db.session import Session
+from app.dependencies import get_db
 from app.models.news_post import NewsPost
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
@@ -36,11 +37,13 @@ class TextMakerDependencyConfig:
             ai_client: AiClientBase = Depends(get_ai_client),
             ai_client_images: AiClientBase = Depends(get_ai_client_images),
             persons: List[str] = Depends(get_persons),
+            session: Session = Depends(get_db)
     ):
         self.news_maker = news_maker
         self.ai_client = ai_client
         self.ai_client_images = ai_client_images
         self.persons = persons
+        self.session = session
 
 class Response(TypedDict):
     original: str | None
@@ -53,7 +56,7 @@ class TextMaker:
         self.news_maker = config.news_maker
         self.ai_client = config.ai_client
         self.ai_client_images = config.ai_client_images
-        self.session = Session()
+        self.session = config.session
         self.persons = config.persons
 
     def create_texts(self, count: int = None, person: str = None) -> list[Response]:

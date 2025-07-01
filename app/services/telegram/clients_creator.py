@@ -1,19 +1,22 @@
 from typing import List
 
+from fastapi.params import Depends
 from telethon import TelegramClient
 
 from app.db.queries.bot import get_bots
+from app.dependencies import get_db
 from app.models.bot import Bot
+from app.db.session import Session
 
 
 class ClientsCreator:
-    def __init__(self, roles: list[str] = None):
-        self.bots = get_bots(roles)
-        # self.bots = list(filter(lambda bot: bot.id == 4, self.bots)) #todo remove
+    def __init__(self, session: Session = Depends(get_db)):
+        self.session = session
 
-    def create_clients_from_bots(self) -> List[TelegramClient]:
+    def create_clients_from_bots(self, roles: list[str] = None) -> List[TelegramClient]:
+        bots = get_bots(session=self.session, roles=roles)
         clients = []
-        for bot in self.bots:
+        for bot in bots:
             api_id = bot.app_id
             api_hash = bot.app_token
             session = bot.name
@@ -22,14 +25,14 @@ class ClientsCreator:
 
         return clients
 
-def get_telegram_clients_to_react() -> ClientsCreator:
-    return ClientsCreator([Bot.ROLE_REACT])
+def get_bot_roles_to_react() -> list[str]:
+    return [Bot.ROLE_REACT]
 
-def get_telegram_clients_to_comment() -> ClientsCreator:
-    return ClientsCreator([Bot.ROLE_POST, Bot.ROLE_INVITE])
+def get_bot_roles_to_comment() -> list[str]:
+    return [Bot.ROLE_POST]
 
-def get_telegram_clients_to_invite() -> ClientsCreator:
-    return ClientsCreator([Bot.ROLE_POST, Bot.ROLE_INVITE])
+def get_bot_roles_to_invite() -> list[str]:
+    return [Bot.ROLE_INVITE]
 
-def get_telegram_clients_for_human_scanner() -> ClientsCreator:
-    return ClientsCreator([Bot.ROLE_HUMAN_SCANNER])
+def get_bot_roles_for_human_scanner() -> list[str]:
+    return [Bot.ROLE_HUMAN_SCANNER]

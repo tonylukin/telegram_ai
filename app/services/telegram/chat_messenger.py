@@ -15,9 +15,10 @@ from app.configs.logger import logging
 from app.db.queries.bot import get_bot
 from app.db.queries.bot_comment import get_channel_comments
 from app.db.session import Session
+from app.dependencies import get_db
 from app.models.bot_comment import BotComment
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment
 from app.services.text_maker import TextMakerDependencyConfig
 from app.services.telegram.helpers import is_user_in_group
 
@@ -29,15 +30,16 @@ class ChatMessenger:
 
     def __init__(
             self,
-            clients_creator: ClientsCreator = Depends(get_telegram_clients_to_comment),
+            clients_creator: ClientsCreator = Depends(),
             chat_searcher: ChatSearcher = Depends(ChatSearcher),
             config: TextMakerDependencyConfig = Depends(TextMakerDependencyConfig),
+            session: Session = Depends(get_db)
     ):
         self.clients = []
         self.clients_creator = clients_creator
         self.chat_searcher = chat_searcher
         self.ai_client = config.ai_client
-        self.session = Session()
+        self.session = session
         self.chat_names = None
         self.message = None
 
@@ -79,7 +81,7 @@ class ChatMessenger:
         if self.chat_names is None:
             self.chat_names = TELEGRAM_CHATS_TO_POST
         self.message = message
-        clients = self.clients_creator.create_clients_from_bots()
+        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
 
         chat_names = self.chat_names[:]
         random.shuffle(chat_names)
@@ -93,7 +95,7 @@ class ChatMessenger:
         await client.start()
         logging.info(f"{client.session.filename} started")
 
-        bot = get_bot(client)
+        bot = get_bot(session=self.session, client=client)
         if bot is None:
             logging.error('Bot not found')
             return {}
@@ -109,7 +111,7 @@ class ChatMessenger:
 
         result = {}
         for chat in chats:
-            comments = get_channel_comments(channel=chat.title)
+            comments = get_channel_comments(self.session, channel=chat.title)
             if len(comments) > 0:
                 logging.info(f"{chat.title}: has recent comments")
                 continue

@@ -5,7 +5,7 @@ from telegram.ext import (
 )
 import aiohttp
 
-from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN
+from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST
 from app.configs.logger import logger
 
 USERNAME, CHATS, CONFIRM = range(3)
@@ -14,14 +14,15 @@ user_data = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[update.effective_chat.id] = {}
-    await update.message.reply_text("👋 Привет! Давай соберём информацию.\nВведите username:")
+    intro_text = "👋 Привет! Этот бот дает описание человека на основе его активности в тех или иных каналах.\n Введите username (@ivan), если есть, либо полное имя аккаунта (Иван Иванов):"
+    await update.message.reply_text(intro_text)
     return USERNAME
 
 async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_data[chat_id]['username'] = update.message.text
 
-    await update.message.reply_text("Теперь введите список чатов (через запятую):")
+    await update.message.reply_text("Теперь введите список чатов (через запятую: @chat1, @chat2).\n Чаты должны быть публичными, это может быть канал с комментариями или просто домовой чат:")
     return CHATS
 
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,7 +55,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.post("http://127.0.0.1:8000/user-info/collect", json=payload) as resp:
+                async with session.post(f"{APP_HOST}/user-info/collect", json=payload) as resp:
                     if resp.status == 200:
                         result = await resp.json()
                         desc = result["result"].get("description", "Нет описания.")

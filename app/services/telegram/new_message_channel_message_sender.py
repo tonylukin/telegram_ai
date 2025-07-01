@@ -11,21 +11,21 @@ from app.config import TELEGRAM_CHANNELS_TO_COMMENT
 from app.configs.logger import logging
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
-from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_comment
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment
 
 
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
 
 class NewMessageChannelMessageSender:
-    def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends(get_telegram_clients_to_comment)):
+    def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends()):
         self.ai_client = ai_client
         self.channels_configs = TELEGRAM_CHANNELS_TO_COMMENT
         self.clients_creator = clients_creator
         self.clients = []
 
     async def send_comments_on_new_messages(self):
-        clients = self.clients_creator.create_clients_from_bots()
+        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
         await asyncio.gather(*(self.__start_client(client) for client in clients))
         await asyncio.gather(*(client.run_until_disconnected() for client in clients))
 

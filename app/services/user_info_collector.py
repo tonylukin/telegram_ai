@@ -1,18 +1,22 @@
+from datetime import timedelta, datetime
+
 from fastapi.params import Depends
 from telethon import TelegramClient
-from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import Message, User, PeerChannel
 
 from app.config import AI_USER_INFO_PROMPT
 from app.configs.logger import logger
+from app.db.queries.tg_users import get_user_by_id
 from app.db.session import Session
+from app.dependencies import get_db
 from app.models.tg_user import TgUser
 from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.clients_creator import ClientsCreator, \
-    get_telegram_clients_for_human_scanner
+    get_bot_roles_for_human_scanner
+from app.services.telegram.helpers import get_chat_from_channel
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
 
@@ -22,15 +26,16 @@ def get_ai_client() -> AiClientBase:
 class UserInfoCollector:
     def __init__(
             self,
-            clients_creator: ClientsCreator = Depends(get_telegram_clients_for_human_scanner),
+            clients_creator: ClientsCreator = Depends(),
             ai_client: AiClientBase = Depends(get_ai_client),
+            session: Session = Depends(get_db)
     ):
         self.clients_creator = clients_creator
         self.ai_client = ai_client
-        self.session = Session()
+        self.session = session
 
     async def __init_client(self) -> TelegramClient:
-        clients = self.clients_creator.create_clients_from_bots()
+        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_for_human_scanner())
         client = clients[0]
         await client.start()
         return client
@@ -38,29 +43,37 @@ class UserInfoCollector:
     async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None):
         client = await self.__init_client()
 
-        if username.startswith('@'): # todo to service
+        # first check linked chats and add them to initial array removing broadcast
+        for chat_name in channel_usernames[:]:
+            try:
+                chat = await client.get_entity(chat_name)
+                linked_chat_id = await get_chat_from_channel(client, chat)
+                if linked_chat_id is None:
+                    logger.error(f"{chat} does not have a full chat")
+                    continue
+
+                if isinstance(linked_chat_id, int):
+                    channel_usernames.remove(chat_name)
+                    channel_usernames.append(str(linked_chat_id))
+            except Exception as e:
+                logger.error(f"Search for linked chats error {chat_name}: {e}")
+
+        if username.startswith('@'):
             user = await client.get_entity(username)
         else:
             user = None
             for chat_name in channel_usernames:
                 try:
-                    chat = await client.get_entity(chat_name) # todo get info from broadcast -> to linked group (app/services/telegram/user_inviter.py::75)
-                    linked_chat_id = None
-                    if chat.broadcast:
-                        full = await client(GetFullChannelRequest(chat))
-                        linked_chat_id = full.full_chat.linked_chat_id
-                        if not linked_chat_id:
-                            logger.error(f"{chat} does not have a full chat")
-                            continue
-                        chat = PeerChannel(linked_chat_id)
+                    chat = chat_name
+                    if chat_name.isnumeric():
+                        chat = PeerChannel(int(chat_name))
 
                     async for msg in client.iter_messages(chat, limit=5000):
                         if isinstance(msg, Message) and msg.sender and isinstance(msg.sender, User):
                             full_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip().lower()
                             if username.lower() in full_name:
                                 user = msg.sender
-                                if linked_chat_id is not None:
-                                    channel_usernames.append(msg.chat.username) #adding linked chat to list along with the broadcast
+                                logger.info(f"User found #{user.id} [{full_name}]")
                                 break
                     if user:
                         break
@@ -69,6 +82,12 @@ class UserInfoCollector:
 
             if not user:
                 raise ValueError(f"❌ User not found '{username}' in these channels: {channel_usernames}.")
+
+        user_found = get_user_by_id(self.session, user.id)
+        date_interval = datetime.now() - timedelta(weeks=1)
+        if user_found and user_found.updated_at and user_found.updated_at > date_interval:
+            logger.info(f"User {user_found.nickname}[{user_found.tg_id}] has fresh info")
+            return user_found.description
 
         try:
             full = await client(GetFullUserRequest(user.id))
@@ -79,8 +98,8 @@ class UserInfoCollector:
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
         comments_by_channel = await UserMessagesSearch.get_user_comments(client=client, channel_usernames=channel_usernames, user=user)
 
+        messages = []
         if len(comments_by_channel) and prompt is None:
-            messages = []
             for _, v in comments_by_channel.items():
                 messages.extend(v)
             prompt = AI_USER_INFO_PROMPT.format(messages=messages)
@@ -99,14 +118,14 @@ class UserInfoCollector:
             "phone": user.phone,
             "is_bot": user.bot,
             "is_verified": user.verified,
-            "comment_count": len(comments_by_channel),
+            "comment_count": len(messages),
             "description": desc,
         }
         self.__save_to_db(user=user, comments_by_channel=comments_by_channel, desc=full_desc)
         return full_desc
 
     def __save_to_db(self, user: User, comments_by_channel: dict[str, set[str]], desc: dict[str, str]) -> None:
-        user_found = self.session.query(TgUser).filter_by(tg_id=user.id).first()
+        user_found = get_user_by_id(self.session, user.id)
 
         try:
             if user_found is None:
@@ -117,6 +136,7 @@ class UserInfoCollector:
 
             user_found.nickname = user.username or f"{user.first_name or ''} {user.last_name or ''}".strip()
             user_found.description = desc
+            user_found.updated_at = datetime.now()
             if user_found.id is None:
                 self.session.flush()
 

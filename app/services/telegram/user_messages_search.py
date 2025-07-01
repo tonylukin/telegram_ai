@@ -48,7 +48,7 @@ class UserMessagesSearch:
 
         for channel_username in channel_usernames:
             # 1. Get the channel and user entities
-            channel = await client.get_entity(channel_username)
+            channel = await client.get_entity(int(channel_username) if channel_username.isnumeric() else channel_username)
 
             # 2. Get recent posts from the channel
             posts = await client.get_messages(channel, limit=limit * 10)

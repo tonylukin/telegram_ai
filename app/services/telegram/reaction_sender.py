@@ -9,7 +9,7 @@ from telethon.tl.types import ReactionEmoji
 
 from app.configs.logger import logging
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.clients_creator import ClientsCreator, get_telegram_clients_to_react
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_react
 
 
 class ReactionSender:
@@ -17,7 +17,7 @@ class ReactionSender:
     MAX_MESSAGES_PER_CHAT = 100
     REACTIONS = ["❤️", "🔥", "👍", "💯", "🙏", "👀", "😁", "🎉", "🤔", "👏", "🥰"]
 
-    def __init__(self, clients_creator: ClientsCreator = Depends(get_telegram_clients_to_react), chat_searcher: ChatSearcher = Depends(ChatSearcher)):
+    def __init__(self, clients_creator: ClientsCreator = Depends(), chat_searcher: ChatSearcher = Depends(ChatSearcher)):
         self.clients = []
         self.clients_creator = clients_creator
         self.chat_searcher = chat_searcher
@@ -125,6 +125,6 @@ class ReactionSender:
     async def send_reactions(self, query: str = None, reaction: str = None) -> list[dict[str, int]]:
         self.query = query
         self.reaction = reaction
-        clients = self.clients_creator.create_clients_from_bots()
+        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_react())
         return await asyncio.gather(*(self.__start_client(client) for client in clients))
         # await asyncio.gather(*(client.run_until_disconnected() for client in self.clients))
