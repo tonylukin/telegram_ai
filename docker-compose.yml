@@ -1,9 +1,6 @@
 version: '3.8'
 
 services:
-  app:
-    volumes:
-      - /home/telegram_ai/app-data:/app
   db:
     image: postgres:14
     environment:
