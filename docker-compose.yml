@@ -1,6 +1,6 @@
 services:
   fastapi:
-    image: tonylukin/telegram_ai:fastapi
+    image: tonylukin/telegram_ai:latest
     build:
       context: .
       dockerfile: Dockerfile

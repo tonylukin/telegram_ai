@@ -7,6 +7,7 @@ on:
 
 env:
   DOCKER_IMAGE: ${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:latest
+  DOCKER_IMAGE_HUMAN_SCANNER_BOT: ${{ vars.DOCKER_USERNAME }}/${{ github.event.repository.name }}:human_scanner_bot
 
 jobs:
   build_and_deploy:
@@ -34,6 +35,15 @@ jobs:
         with:
           push: true
           tags: ${{ env.DOCKER_IMAGE }}
+
+      # Build and push human_scanner_bot image
+      - name: Build and push human_scanner_bot Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: human_scanner_bot.dockerfile
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_HUMAN_SCANNER_BOT }}
 
       # Подключаемся по SSH к Droplet и перезапускаем контейнер
 #            echo "${{ secrets.DOTENV_FILE }}" > .env
