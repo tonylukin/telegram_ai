@@ -1,5 +1,6 @@
 services:
   fastapi:
+    image: tonylukin/telegram_ai:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,6 +12,7 @@ services:
       - db
 
   human_ai_bot:
+    image: tonylukin/telegram_ai:latest
     build:
       context: .
       dockerfile: human_scanner_bot.dockerfile
