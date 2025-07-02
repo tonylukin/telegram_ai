@@ -36,6 +36,7 @@ jobs:
           tags: ${{ env.DOCKER_IMAGE }}
 
       # Подключаемся по SSH к Droplet и перезапускаем контейнер
+#            echo "${{ secrets.DOTENV_FILE }}" > .env
       - name: Deploy to DigitalOcean
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -45,7 +46,6 @@ jobs:
           script: |
             mkdir -p /home/telegram_ai
             cd /home/telegram_ai
-#            echo "${{ secrets.DOTENV_FILE }}" > .env
 
             docker compose pull
             docker compose down
