@@ -4,3 +4,4 @@
 .env.prod
 .idea
 __pycache__
+sessions

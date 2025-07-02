@@ -8,6 +8,8 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    volumes:
+      - session_data:/app/sessions
     depends_on:
       - db
 
@@ -18,6 +20,8 @@ services:
       dockerfile: human_scanner_bot.dockerfile
     env_file:
         - .env
+    volumes:
+      - session_data:/app/sessions
     depends_on:
       - db
 
@@ -36,3 +40,4 @@ services:
 
 volumes:
   pgdata:
+  session_data:
