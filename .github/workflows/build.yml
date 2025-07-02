@@ -45,7 +45,7 @@ jobs:
           script: |
             mkdir -p /home/telegram_ai
             cd /home/telegram_ai
-            echo "${{ secrets.DOTENV_FILE }}" > .env
+#            echo "${{ secrets.DOTENV_FILE }}" > .env
 
             docker compose pull
             docker compose down
