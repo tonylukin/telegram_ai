@@ -13,5 +13,4 @@ COPY . .
 # Устанавливаем переменную окружения PYTHONPATH
 ENV PYTHONPATH=/app
 
-# Команда по умолчанию для запуска бота
 CMD ["python3", "app/bots/human_scanner_ai/main.py"]

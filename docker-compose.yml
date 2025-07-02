@@ -1,6 +1,26 @@
 version: '3.8'
 
 services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: fastapi.dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  human_ai_bot:
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    env_file:
+        - .env
+    depends_on:
+      - db
+
   db:
     image: postgres:14
     env_file:
