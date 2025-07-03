@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from pydantic import BaseModel
 
+from app.configs.logger import logger
 from app.services.user_info_collector import UserInfoCollector
 
 router = APIRouter(prefix="/user-info", tags=["User Info"])
@@ -18,4 +19,5 @@ async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector =
         result = await user_info_collector.get_user_info(username=body.username, channel_usernames=body.chats)
         return {"status": "ok", "result": result}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"User info collector error: {e}")
+        raise HTTPException(status_code=500, detail='Please try again')

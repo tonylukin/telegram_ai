@@ -10,6 +10,8 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 # Копируем всё остальное
 COPY . .
 
+RUN mkdir -p /app/logs
+
 # Устанавливаем переменную окружения PYTHONPATH
 ENV PYTHONPATH=/app
 

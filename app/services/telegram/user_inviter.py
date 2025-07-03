@@ -20,7 +20,7 @@ from app.services.telegram.helpers import join_chats
 
 
 class UserInviter:
-    MAX_USERS = 10
+    MAX_USERS = 20
     DELAY_RANGE = (10, 20)
 
     def __init__(self, clients_creator: ClientsCreator = Depends(), session: Session = Depends(get_db)):

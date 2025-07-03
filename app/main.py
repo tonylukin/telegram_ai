@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+
+from app.configs.logger import logger
 from app.routers import all_routers
 
 app = FastAPI()
@@ -7,4 +9,5 @@ for r in all_routers:
 
 @app.get("/")
 async def root():
+    logger.info("Root endpoint was accessed")
     return {"message": "Hello World"}
