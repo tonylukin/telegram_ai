@@ -7,7 +7,7 @@ from app.models.bot import Bot
 
 def get_bot(session: Session, client: TelegramClient = None, name: str = None) -> Bot:
     if client is not None:
-        name = client.session.filename.split('.')[0]
+        name = client.session.filename.removeprefix('sessions/').split('.')[0]
     return session.query(Bot).filter_by(name=name).first()
 
 def get_bots(session: Session, roles: list[str] = None) -> list[Bot]:

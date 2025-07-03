@@ -16,7 +16,7 @@ from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_bot_roles_for_human_scanner
-from app.services.telegram.helpers import get_chat_from_channel
+from app.services.telegram.helpers import get_chat_from_channel, resolve_tg_link
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
 
@@ -46,7 +46,7 @@ class UserInfoCollector:
         # first check linked chats and add them to initial array removing broadcast
         for chat_name in channel_usernames[:]:
             try:
-                chat = await client.get_entity(chat_name)
+                chat = await resolve_tg_link(client, chat_name)
                 linked_chat_id = await get_chat_from_channel(client, chat)
                 if linked_chat_id is None:
                     logger.error(f"{chat} does not have a full chat")
@@ -84,7 +84,7 @@ class UserInfoCollector:
                 raise ValueError(f"❌ User not found '{username}' in these channels: {channel_usernames}.")
 
         user_found = get_user_by_id(self.session, user.id)
-        date_interval = datetime.now() - timedelta(weeks=1)
+        date_interval = datetime.now() - timedelta(weeks=4)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:
             logger.info(f"User {user_found.nickname}[{user_found.tg_id}] has fresh info")
             return user_found.description

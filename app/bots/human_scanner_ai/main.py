@@ -22,7 +22,7 @@ async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_data[chat_id]['username'] = update.message.text
 
-    await update.message.reply_text("Теперь введите список чатов (через запятую: @chat1, @chat2).\n Чаты должны быть публичными, это может быть канал с комментариями или просто домовой чат:")
+    await update.message.reply_text("Теперь введите список чатов (через запятую: @chat1, https://t.me/chat2, t.me/+инвайт).\n Чаты должны быть публичными, это может быть канал с комментариями или просто домовой чат:")
     return CHATS
 
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,7 +46,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
     chat_id = query.message.chat_id
 
     if query.data == "confirm":
-        await query.edit_message_text("⏳ Запрос отправляется...")
+        await query.edit_message_text("⏳ Запрос отправляется... (если получите ошибку - просто попробуйте еще раз)")
 
         payload = {
             "username": user_data[chat_id]['username'],

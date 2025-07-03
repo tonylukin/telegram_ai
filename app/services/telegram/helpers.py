@@ -92,3 +92,31 @@ async def get_chat_from_channel(client: TelegramClient, channel: Channel) -> Cha
         return linked_chat_id
 
     return channel
+
+
+async def resolve_tg_link(client, link: str):
+    """
+    Универсальный парсер Telegram-ссылки: t.me/username или t.me/+invite
+    Возвращает entity (Channel, Chat и т.п.)
+    """
+    # Очистка
+    link = link.strip().replace("https://", "").replace("http://", "")
+
+    # Извлекаем "somechat" или "+abcXYZ"
+    match = re.match(r"(t|telegram)\.me/([\w\d_+-]+)", link)
+    if not match:
+        raise ValueError("Невалидная Telegram-ссылка")
+
+    tag = match.group(2)
+
+    if tag.startswith('+'):  # инвайт-ссылка
+        invite_hash = tag[1:]
+        try:
+            update = await client(ImportChatInviteRequest(invite_hash))
+            return update.chats[0]
+        except UserAlreadyParticipantError:
+            # Если уже вступил — можно просто получить entity по username
+            return await client.get_entity(invite_hash)
+    else:
+        # Обычный username
+        return await client.get_entity(tag)
