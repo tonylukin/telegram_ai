@@ -47,6 +47,10 @@ class UserInfoCollector:
         for chat_name in channel_usernames[:]:
             try:
                 chat = await resolve_tg_link(client, chat_name)
+                if chat.username and chat.username != chat_name:
+                    channel_usernames.remove(chat_name)
+                    channel_usernames.append(chat.username)
+
                 linked_chat_id = await get_chat_from_channel(client, chat)
                 if linked_chat_id is None:
                     logger.error(f"{chat} does not have a full chat")
