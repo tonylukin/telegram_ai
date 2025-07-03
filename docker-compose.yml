@@ -10,6 +10,7 @@ services:
       - .env
     volumes:
       - ${SESSION_PATH}:/app/sessions
+      - ${LOGS_PATH}:/app/logs
     depends_on:
       - db
 
