@@ -120,3 +120,32 @@ async def resolve_tg_link(client, link: str):
     else:
         # Обычный username
         return await client.get_entity(tag)
+
+def extract_username_or_name(text: str) -> str:
+    """
+    Извлекает Telegram username или возвращает имя как есть.
+
+    Юзкейсы:
+    - "https://t.me/username" -> "@username"
+    - "http://telegram.me/username" -> "@username"
+    - "t.me/username" -> "@username"
+    - "@username" -> "@username"
+    - "Иван Иванов" -> "Иван Иванов"
+    """
+    if not text or not isinstance(text, str):
+        return ""
+
+    text = text.strip()
+
+    # Match ссылки t.me/username или telegram.me/username
+    match = re.search(r'(?:https?://)?(?:t(?:elegram)?\.me)/([a-zA-Z0-9_]{5,})', text)
+    if match:
+        return f"@{match.group(1)}"
+
+    # Match @username
+    match = re.match(r'^@([a-zA-Z0-9_]{5,})$', text)
+    if match:
+        return f"@{match.group(1)}"
+
+    # Ни username, ни ссылка — возвращаем как есть
+    return text

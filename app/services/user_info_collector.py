@@ -16,7 +16,7 @@ from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_bot_roles_for_human_scanner
-from app.services.telegram.helpers import get_chat_from_channel, resolve_tg_link
+from app.services.telegram.helpers import get_chat_from_channel, resolve_tg_link, extract_username_or_name
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
 
@@ -58,6 +58,7 @@ class UserInfoCollector:
             except Exception as e:
                 logger.error(f"Search for linked chats error {chat_name}: {e}")
 
+        username = extract_username_or_name(username)
         if username.startswith('@'):
             user = await client.get_entity(username)
         else:
