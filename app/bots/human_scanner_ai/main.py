@@ -22,7 +22,7 @@ async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_data[chat_id]['username'] = update.message.text
 
-    await update.message.reply_text("Теперь введите список чатов (через запятую: @chat1, https://t.me/chat2, t.me/+инвайт).\n Чаты должны быть публичными, это может быть канал с комментариями или просто домовой чат:")
+    await update.message.reply_text("Теперь введите список чатов (через запятую: @chat1, https://t.me/chat2, t.me/+инвайт).\n Чаты должны быть публичными (для приватных нужна ссылка-приглашение), это может быть канал с комментариями или просто домовой чат:")
     return CHATS
 
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,7 +59,14 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
                     if resp.status == 200:
                         result = await resp.json()
                         desc = result["result"].get("description", "Нет описания.")
-                        await query.message.reply_text(f"📄 Результат:\n\n{desc}")
+                        keyboard = [
+                            [InlineKeyboardButton("🔄 Начать сначала", callback_data="restart")]
+                        ]
+
+                        await query.message.reply_text(
+                            f"📄 Результат:\n\n{desc}",
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
                     else:
                         await query.message.reply_text(f"⚠️ Ошибка сервера: {resp.status} {await resp.text()}")
         except Exception as e:
@@ -68,6 +75,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         return ConversationHandler.END
 
     elif query.data == "restart":
+        user_data.pop(chat_id, None)  # очищаем старые данные
         await query.message.reply_text("🔄 Давайте начнём заново. Введите username:")
         return USERNAME
 
