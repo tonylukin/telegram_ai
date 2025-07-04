@@ -5,7 +5,7 @@ from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import Message, User, PeerChannel
 
-from app.config import AI_USER_INFO_PROMPT
+from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROMPT
 from app.configs.logger import logger
 from app.db.queries.tg_users import get_user_by_id
 from app.db.session import Session
@@ -86,7 +86,7 @@ class UserInfoCollector:
                     logger.error(f"⚠️ Search error {chat_name}: {e}")
 
             if not user:
-                raise ValueError(f"❌ User not found '{username}' in these channels: {channel_usernames}.")
+                raise ValueError(f"❌ User '{username}' not found in these channels: {channel_usernames}.")
 
         user_found = get_user_by_id(self.session, user.id)
         date_interval = datetime.now() - timedelta(weeks=4)
@@ -101,18 +101,28 @@ class UserInfoCollector:
             logger.error(f"Could not find info for {username}: {e}")
 
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
-        comments_by_channel = await UserMessagesSearch.get_user_comments(client=client, channel_usernames=channel_usernames, user=user)
-
-        messages = []
-        if len(comments_by_channel) and prompt is None:
-            for _, v in comments_by_channel.items():
-                messages.extend(v)
-            prompt = AI_USER_INFO_PROMPT.format(messages=messages)
-        desc = ''
-        if prompt is not None:
-            desc = self.ai_client.generate_text(prompt)
+        comments_reactions_by_channel = await UserMessagesSearch.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user)
 
         await client.disconnect()
+
+        messages = []
+        reactions = []
+        prompt_reactions = None
+        if len(comments_reactions_by_channel) and prompt is None:
+            for _, v in comments_reactions_by_channel.get('comments').items():
+                messages.extend(v)
+            if messages:
+                prompt = AI_USER_INFO_MESSAGES_PROMPT.format(messages=messages)
+
+            for _, v in comments_reactions_by_channel.get('reactions').items():
+                reactions.extend(v)
+            if reactions:
+                prompt_reactions = AI_USER_INFO_REACTIONS_PROMPT.format(reactions=reactions)
+        desc = []
+        if prompt is not None:
+            desc = self.ai_client.generate_text(prompt)
+        if prompt_reactions is not None:
+            desc = self.ai_client.generate_text(prompt_reactions)
 
         full_desc = {
             "id": user.id,
@@ -126,10 +136,10 @@ class UserInfoCollector:
             "comment_count": len(messages),
             "description": desc,
         }
-        self.__save_to_db(user=user, comments_by_channel=comments_by_channel, desc=full_desc)
+        self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, desc=full_desc)
         return full_desc
 
-    def __save_to_db(self, user: User, comments_by_channel: dict[str, set[str]], desc: dict[str, str]) -> None:
+    def __save_to_db(self, user: User, comments_reactions_by_channel: dict[str, dict[str, set[str]]], desc: dict[str, str]) -> None:
         user_found = get_user_by_id(self.session, user.id)
 
         try:
@@ -145,7 +155,8 @@ class UserInfoCollector:
             if user_found.id is None:
                 self.session.flush()
 
-            for channel, comments in comments_by_channel.items():
+            for channel, comments_reactions in comments_reactions_by_channel.items():
+                comments = comments_reactions.get('comments')
                 for comment in comments:
                     if not comment:
                         continue

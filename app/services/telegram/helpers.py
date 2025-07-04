@@ -99,15 +99,14 @@ async def resolve_tg_link(client, link: str):
     Универсальный парсер Telegram-ссылки: t.me/username или t.me/+invite
     Возвращает entity (Channel, Chat и т.п.)
     """
+    tag = link
     # Очистка
     link = link.strip().replace("https://", "").replace("http://", "")
 
     # Извлекаем "somechat" или "+abcXYZ"
     match = re.match(r"(t|telegram)\.me/([\w\d_+-]+)", link)
-    if not match:
-        raise ValueError("Невалидная Telegram-ссылка")
-
-    tag = match.group(2)
+    if match:
+        tag = match.group(2)
 
     if tag.startswith('+'):  # инвайт-ссылка
         invite_hash = tag[1:]

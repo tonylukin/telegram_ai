@@ -61,7 +61,6 @@ async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("✅ Подтвердить", callback_data="confirm")],
         [InlineKeyboardButton("🔁 Изменить", callback_data="restart")],
-        [InlineKeyboardButton("❌ Отмена", callback_data="cancel")],
     ]
     await update.message.reply_text(
         summary,
@@ -89,9 +88,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif query.data == "restart":
         return await restart(query, context)
 
-    elif query.data == "cancel":
-        await query.message.reply_text("🚫 Операция отменена.")
-        return ConversationHandler.END
+    return ConversationHandler.END
 
 
 async def retry_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -117,10 +114,9 @@ async def send_request_with_retry(query, payload):
                     desc = result["result"].get("description", "Нет описания.")
                     keyboard = [
                         [InlineKeyboardButton("🔄 Начать сначала", callback_data="restart")],
-                        [InlineKeyboardButton("🚫 Закрыть", callback_data="cancel")],
                     ]
                     await query.message.reply_text(
-                        f"📄 Результат:\n\n{desc}",
+                        f"📄 Результат:\n\n{desc or 'Активность в чатах не обнаружена'}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                     return CONFIRM
@@ -135,7 +131,7 @@ async def send_request_with_retry(query, payload):
 async def send_error_with_retry(query, error_text):
     keyboard = [
         [InlineKeyboardButton("🔄 Повторить", callback_data="retry")],
-        [InlineKeyboardButton("🚫 Отмена", callback_data="cancel")],
+        [InlineKeyboardButton("🚫 Начать сначала", callback_data="restart")],
     ]
     await query.message.reply_text(
         error_text,
@@ -160,7 +156,7 @@ if __name__ == '__main__':
             USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
             CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],
             CONFIRM: [
-                CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart|cancel)$"),
+                CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$"),
                 CallbackQueryHandler(retry_request, pattern="^retry$"),
             ],
         },

@@ -1,7 +1,7 @@
 from telethon import TelegramClient
 from telethon.tl.custom.message import Message
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
-from telethon.tl.types import PeerChannel
+from telethon.tl.types import PeerChannel, MessagePeerReaction
 from telethon.tl.types import PeerUser, User
 
 from app.configs.logger import logging
@@ -43,7 +43,7 @@ class UserMessagesSearch:
         return messages
 
     @staticmethod
-    async def get_user_comments(client: TelegramClient, channel_usernames: list[str], user: User, limit: int = 50) -> dict[str, set[str]]:
+    async def get_user_comments_reactions(client: TelegramClient, channel_usernames: list[str], user: User, limit: int = 50) -> dict[str, dict[str, set[str]]]:
         result = {}
 
         for channel_username in channel_usernames:
@@ -53,17 +53,21 @@ class UserMessagesSearch:
             # 2. Get recent posts from the channel
             posts = await client.get_messages(channel, limit=limit * 10)
             comments = set()
+            reactions = set()
 
             for post in posts:
                 try:
-                    if post.from_id.user_id == user.id:
+                    if hasattr(post, 'from_id') and post.from_id and post.from_id.user_id == user.id:
                         comments.add(post.message)
 
                     # 3. Get the linked discussion group (if exists)
-                    discussion = await client(GetDiscussionMessageRequest(
-                        peer=channel,
-                        msg_id=post.id
-                    ))
+                    try:
+                        discussion = await client(GetDiscussionMessageRequest(
+                            peer=channel,
+                            msg_id=post.id
+                        ))
+                    except Exception:
+                        continue
 
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_chat_id)
@@ -71,11 +75,28 @@ class UserMessagesSearch:
                     # 4. Retrieve comments in discussion group from the user
                     async for msg in client.iter_messages(discussion_peer, from_user=user, limit=limit):
                         comments.add(msg.message)
+
+                    # 5. Check if user reacted to this post
+                    if post.reactions and post.reactions.recent_reactions:
+                        for reaction in post.reactions.recent_reactions:
+                            if isinstance(reaction.peer_id, MessagePeerReaction) and hasattr(reaction.peer, 'user_id') and reaction.peer.user_id == user.id:
+                                reactions.add(f"Reaction {reaction.reaction.emoticon} on post {post.message}")
+
+                    # 6. Check if user reacted to comments in discussion
+                    async for msg in client.iter_messages(discussion_peer, limit=limit):
+                        if msg.reactions and msg.reactions.recent_reactions:
+                            for reaction in msg.reactions.recent_reactions:
+                                if hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
+                                    reactions.add(f"Reaction {reaction.reaction.emoticon} on post {msg.message}")
+
                 except Exception as e:
                     logging.error(f"⚠️ Skipping post {post.id}: {e}")
                     continue
 
-            if len(comments):
-                result[channel_username] = comments
+            if comments or reactions:
+                result[channel_username] = {
+                    'comments': comments,
+                    'reactions': reactions
+                }
 
         return result

@@ -18,6 +18,8 @@ async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector =
     try:
         result = await user_info_collector.get_user_info(username=body.username, channel_usernames=body.chats)
         return {"status": "ok", "result": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"User info collector error: {e}")
         raise HTTPException(status_code=500, detail='Please try again')
