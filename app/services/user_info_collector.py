@@ -47,6 +47,10 @@ class UserInfoCollector:
         for chat_name in channel_usernames[:]:
             try:
                 chat = await resolve_tg_link(client, chat_name)
+                if isinstance(chat, User):
+                    logger.error(f"'{chat}' is User instance")
+                    continue
+
                 if chat.username and chat.username != chat_name:
                     channel_usernames.remove(chat_name)
                     channel_usernames.append(chat.username)
@@ -57,7 +61,10 @@ class UserInfoCollector:
                     continue
 
                 if isinstance(linked_chat_id, int):
-                    channel_usernames.remove(chat_name)
+                    if chat_name in channel_usernames:
+                        channel_usernames.remove(chat_name)
+                    elif chat.username in channel_usernames:
+                        channel_usernames.remove(chat.username)
                     channel_usernames.append(str(linked_chat_id))
             except Exception as e:
                 logger.error(f"Search for linked chats error {chat_name}: {e}")
