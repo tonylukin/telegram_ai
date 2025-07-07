@@ -64,7 +64,12 @@ class UserInfoCollector:
 
         username = extract_username_or_name(username)
         if username.startswith('@'):
-            user = await client.get_entity(username)
+            try:
+                user = await client.get_entity(username)
+            except Exception as e:
+                await client.disconnect()
+                logger.error(f"User {username} not found: {e}")
+                raise e
         else:
             user = None
             for chat_name in channel_usernames:
@@ -86,12 +91,14 @@ class UserInfoCollector:
                     logger.error(f"⚠️ Search error {chat_name}: {e}")
 
             if not user:
+                await client.disconnect()
                 raise ValueError(f"❌ User '{username}' not found in these channels: {channel_usernames}.")
 
         user_found = get_user_by_id(self.session, user.id)
         date_interval = datetime.now() - timedelta(weeks=4)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:
             logger.info(f"User {user_found.nickname}[{user_found.tg_id}] has fresh info")
+            await client.disconnect()
             return user_found.description
 
         try:

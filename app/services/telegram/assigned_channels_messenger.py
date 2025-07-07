@@ -114,6 +114,8 @@ class AssignedChannelsMessenger:
             except Exception as e:
                 logging.error(f"❌ Error in {chat.title}: {e}")
 
+        await client.disconnect()
+
         try:
             self.session.commit()
         except Exception as e:
@@ -122,6 +124,5 @@ class AssignedChannelsMessenger:
         finally:
             self.session.close()
 
-        await client.disconnect()
         logging.info(f"Messages sent: {result}")
         return {client.session.filename: result}

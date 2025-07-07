@@ -127,6 +127,8 @@ class UserInviter:
                 except Exception as e:
                     logging.error(f"⚠️ Error getting discussion: {e}")
 
+        await client.disconnect()
+
         try:
             self.session.commit()
         except Exception as e:
@@ -135,5 +137,4 @@ class UserInviter:
         finally:
             self.session.close()
 
-        await client.disconnect()
         return {client.session.filename: invited}

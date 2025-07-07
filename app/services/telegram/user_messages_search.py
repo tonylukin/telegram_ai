@@ -47,11 +47,16 @@ class UserMessagesSearch:
         result = {}
 
         for channel_username in channel_usernames:
-            # 1. Get the channel and user entities
-            channel = await client.get_entity(int(channel_username) if channel_username.isnumeric() else channel_username)
+            try:
+                # 1. Get the channel and user entities
+                channel = await client.get_entity(int(channel_username) if channel_username.isnumeric() else channel_username)
 
-            # 2. Get recent posts from the channel
-            posts = await client.get_messages(channel, limit=limit * 10)
+                # 2. Get recent posts from the channel
+                posts = await client.get_messages(channel, limit=limit * 10)
+            except Exception as e:
+                logging.error(f"Error getting info for {channel_username}: {e}")
+                continue
+
             comments = set()
             reactions = set()
 

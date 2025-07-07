@@ -111,29 +111,34 @@ class ChatMessenger:
 
         result = {}
         for chat in chats:
-            comments = get_channel_comments(self.session, channel=chat.title)
-            if len(comments) > 0:
-                logging.info(f"{chat.title}: has recent comments")
-                continue
-            if await self.has_antispam_bot(chat=chat, client=client):
-                logging.info(f"{chat.title} has antispam bot")
-                continue
-            if not await is_user_in_group(client, chat):
-                logging.info(f"🚪 Not in chat. Joining {chat.title}")
-                await client(JoinChannelRequest(chat))
-                await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
+            try:
+                comments = get_channel_comments(self.session, channel=chat.title)
+                if len(comments) > 0:
+                    logging.info(f"{chat.title}: has recent comments")
+                    continue
+                if await self.has_antispam_bot(chat=chat, client=client):
+                    logging.info(f"{chat.title} has antispam bot")
+                    continue
+                if not await is_user_in_group(client, chat):
+                    logging.info(f"🚪 Not in chat. Joining {chat.title}")
+                    await client(JoinChannelRequest(chat))
+                    await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
-            message = self.ai_client.generate_text(AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=chat.title))
-            if await self.send_message(client=client, chat=chat, message=message):
-                result[chat.title] = 1
-                bot_comment = BotComment(
-                    bot_id=bot.id,
-                    comment=message,
-                    channel=chat.title,
-                )
-                self.session.add(bot_comment)
+                message = self.ai_client.generate_text(AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=chat.title))
+                if await self.send_message(client=client, chat=chat, message=message):
+                    result[chat.title] = 1
+                    bot_comment = BotComment(
+                        bot_id=bot.id,
+                        comment=message,
+                        channel=chat.title,
+                    )
+                    self.session.add(bot_comment)
 
-            await asyncio.sleep(random.choice(range(10, 15)))
+                await asyncio.sleep(random.choice(range(10, 15)))
+            except Exception as e:
+                logging.error(f"Error [{chat.title}]: {e}")
+
+        await client.disconnect()
 
         try:
             self.session.commit()
@@ -143,6 +148,5 @@ class ChatMessenger:
         finally:
             self.session.close()
         result = {client.session.filename: result}
-        await client.disconnect()
         logging.info(f"Messages sent: {result}")
         return result
