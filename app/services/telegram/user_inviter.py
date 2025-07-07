@@ -16,7 +16,7 @@ from app.dependencies import get_db
 from app.models.tg_user_invited import TgUserInvited
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_bot_roles_to_invite
-from app.services.telegram.helpers import join_chats
+from app.services.telegram.helpers import join_chats, get_chat_from_channel
 
 
 class UserInviter:
@@ -62,15 +62,11 @@ class UserInviter:
         channel_entities = {}
         for channel in channels:
             try:
-                # todo use helpers.get_chat_from_channel
                 channel_entity = await client.get_entity(channel)
-                if channel_entity.broadcast:
-                    full = await client(GetFullChannelRequest(channel))
-                    linked_chat_id = full.full_chat.linked_chat_id
-                    if not linked_chat_id:
-                        logger.error(f"{channel} does not have a full chat")
-                        continue
-
+                linked_chat_id = await get_chat_from_channel(client, channel_entity)
+                if linked_chat_id is None:
+                    continue
+                if isinstance(linked_chat_id, int):
                     try:
                         messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count)
                     except Exception as e:

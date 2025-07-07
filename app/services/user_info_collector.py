@@ -48,7 +48,8 @@ class UserInfoCollector:
             try:
                 chat = await resolve_tg_link(client, chat_name)
                 if isinstance(chat, User):
-                    logger.error(f"'{chat}' is User instance")
+                    logger.info(f"'{chat.username}' is User instance")
+                    channel_usernames.remove(chat_name)
                     continue
 
                 if chat.username and chat.username != chat_name:
@@ -57,7 +58,6 @@ class UserInfoCollector:
 
                 linked_chat_id = await get_chat_from_channel(client, chat)
                 if linked_chat_id is None:
-                    logger.error(f"{chat} does not have a full chat")
                     continue
 
                 if isinstance(linked_chat_id, int):
@@ -123,20 +123,18 @@ class UserInfoCollector:
         reactions = []
         prompt_reactions = None
         if len(comments_reactions_by_channel) and prompt is None:
-            for _, v in comments_reactions_by_channel.get('comments').items():
-                messages.extend(v)
+            for entry in comments_reactions_by_channel.values():
+                messages.extend(entry['comments'])
+                reactions.extend(entry['reactions'])
             if messages:
                 prompt = AI_USER_INFO_MESSAGES_PROMPT.format(messages=messages)
-
-            for _, v in comments_reactions_by_channel.get('reactions').items():
-                reactions.extend(v)
             if reactions:
                 prompt_reactions = AI_USER_INFO_REACTIONS_PROMPT.format(reactions=reactions)
         desc = []
         if prompt is not None:
-            desc = self.ai_client.generate_text(prompt)
+            desc.append(self.ai_client.generate_text(prompt))
         if prompt_reactions is not None:
-            desc = self.ai_client.generate_text(prompt_reactions)
+            desc.append(self.ai_client.generate_text(prompt_reactions))
 
         full_desc = {
             "id": user.id,
@@ -148,7 +146,7 @@ class UserInfoCollector:
             "is_bot": user.bot,
             "is_verified": user.verified,
             "comment_count": len(messages),
-            "description": desc,
+            "description": '\n\n'.join(desc),
         }
         self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, desc=full_desc)
         return full_desc

@@ -81,12 +81,12 @@ async def is_user_in_group(client: TelegramClient, chat: Channel|Chat) -> bool:
     except ChannelPrivateError:
         return False
 
-async def get_chat_from_channel(client: TelegramClient, channel: Channel) -> Channel | int |None:
+async def get_chat_from_channel(client: TelegramClient, channel: Channel) -> Channel | int | None:
     if channel.broadcast:
         full = await client(GetFullChannelRequest(channel.id))
         linked_chat_id = full.full_chat.linked_chat_id
         if not linked_chat_id:
-            logger.error(f"{channel.username} does not have a full chat")
+            logger.info(f"{channel.username} does not have a full chat")
             return None
 
         return linked_chat_id

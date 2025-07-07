@@ -19,7 +19,7 @@ class UserMessagesSearch:
 
         async for dialog in client.iter_dialogs():
             async for msg in client.iter_messages(dialog.id, limit=100):
-                if msg.from_id and isinstance(msg.from_id, PeerUser) and msg.from_id.user_id == user.id:
+                if msg.from_id and isinstance(msg.from_id, PeerUser) and hasattr(msg.from_id, 'user_id') and msg.from_id.user_id == user.id:
                     messages.append(msg)
                     if len(messages) >= limit:
                         return messages
@@ -50,6 +50,8 @@ class UserMessagesSearch:
             try:
                 # 1. Get the channel and user entities
                 channel = await client.get_entity(int(channel_username) if channel_username.isnumeric() else channel_username)
+                if isinstance(channel, User):
+                    continue
 
                 # 2. Get recent posts from the channel
                 posts = await client.get_messages(channel, limit=limit * 10)
@@ -62,7 +64,7 @@ class UserMessagesSearch:
 
             for post in posts:
                 try:
-                    if hasattr(post, 'from_id') and post.from_id and post.from_id.user_id == user.id:
+                    if hasattr(post, 'from_id') and post.from_id and hasattr(post.from_id, 'user_id') and post.from_id.user_id == user.id:
                         comments.add(post.message)
 
                     # 3. Get the linked discussion group (if exists)
@@ -84,7 +86,7 @@ class UserMessagesSearch:
                     # 5. Check if user reacted to this post
                     if post.reactions and post.reactions.recent_reactions:
                         for reaction in post.reactions.recent_reactions:
-                            if isinstance(reaction.peer_id, MessagePeerReaction) and hasattr(reaction.peer, 'user_id') and reaction.peer.user_id == user.id:
+                            if isinstance(reaction.peer_id, MessagePeerReaction) and hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
                                 reactions.add(f"Reaction {reaction.reaction.emoticon} on post {post.message}")
 
                     # 6. Check if user reacted to comments in discussion
