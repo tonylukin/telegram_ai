@@ -119,7 +119,7 @@ class ReactionSender:
             result = await self.__send_reactions_to_my_chats(client=client)
 
         await client.disconnect()
-        logging.info(f"Reactions found: {result}")
+        logging.info(f"Reactions sent: {result}")
         return result
 
     async def send_reactions(self, query: str = None, reaction: str = None) -> list[dict[str, int]]:

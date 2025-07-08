@@ -112,29 +112,24 @@ class UserInfoCollector:
             full = await client(GetFullUserRequest(user.id))
         except Exception as e:
             full = None
-            logger.error(f"Could not find info for {username}: {e}")
+            logger.info(f"Could not find info for {username}: {e}")
 
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
         comments_reactions_by_channel = await UserMessagesSearch.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user)
 
         await client.disconnect()
 
-        messages = []
+        messages = [] # todo add messages from DB here
         reactions = []
-        prompt_reactions = None
-        if len(comments_reactions_by_channel) and prompt is None:
+        if len(comments_reactions_by_channel):
             for entry in comments_reactions_by_channel.values():
                 messages.extend(entry['comments'])
                 reactions.extend(entry['reactions'])
-            if messages:
-                prompt = AI_USER_INFO_MESSAGES_PROMPT.format(messages=messages)
-            if reactions:
-                prompt_reactions = AI_USER_INFO_REACTIONS_PROMPT.format(reactions=reactions)
         desc = []
-        if prompt is not None:
-            desc.append(self.ai_client.generate_text(prompt))
-        if prompt_reactions is not None:
-            desc.append(self.ai_client.generate_text(prompt_reactions))
+        if messages:
+            desc.append(self.ai_client.generate_text((prompt or AI_USER_INFO_MESSAGES_PROMPT).format(messages=messages)))
+        if reactions:
+            desc.append(self.ai_client.generate_text(AI_USER_INFO_REACTIONS_PROMPT.format(reactions=reactions)))
 
         full_desc = {
             "id": user.id,
@@ -164,20 +159,29 @@ class UserInfoCollector:
             user_found.nickname = user.username or f"{user.first_name or ''} {user.last_name or ''}".strip()
             user_found.description = desc
             user_found.updated_at = datetime.now()
+            existing_comments = set()
             if user_found.id is None:
                 self.session.flush()
+            else:
+                existing_comments = {
+                    c.comment
+                    for c in self.session.query(TgUserComment.comment)
+                    .filter_by(user_id=user_found.id)
+                    .all()
+                }
 
             for channel, comments_reactions in comments_reactions_by_channel.items():
                 comments = comments_reactions.get('comments')
                 for comment in comments:
                     if not comment:
                         continue
-                    tg_user_comment = TgUserComment(
-                        user_id=user_found.id,
-                        comment=comment,
-                        channel=channel,
-                    )
-                    self.session.add(tg_user_comment)
+                    if comment not in existing_comments:
+                        tg_user_comment = TgUserComment(
+                            user_id=user_found.id,
+                            comment=comment,
+                            channel=channel,
+                        )
+                        self.session.add(tg_user_comment)
             self.session.commit()
         except Exception as e:
             self.session.rollback()

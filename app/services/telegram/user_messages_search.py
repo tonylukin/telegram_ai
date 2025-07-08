@@ -67,6 +67,12 @@ class UserMessagesSearch:
                     if hasattr(post, 'from_id') and post.from_id and hasattr(post.from_id, 'user_id') and post.from_id.user_id == user.id:
                         comments.add(post.message)
 
+                    # 5. Check if user reacted to this post
+                    if post.reactions and post.reactions.recent_reactions:
+                        for reaction in post.reactions.recent_reactions:
+                            if hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
+                                reactions.add(f"Reaction {reaction.reaction.emoticon} on post {post.message}")
+
                     # 3. Get the linked discussion group (if exists)
                     try:
                         discussion = await client(GetDiscussionMessageRequest(
@@ -83,18 +89,12 @@ class UserMessagesSearch:
                     async for msg in client.iter_messages(discussion_peer, from_user=user, limit=limit):
                         comments.add(msg.message)
 
-                    # 5. Check if user reacted to this post
-                    if post.reactions and post.reactions.recent_reactions:
-                        for reaction in post.reactions.recent_reactions:
-                            if isinstance(reaction.peer_id, MessagePeerReaction) and hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
-                                reactions.add(f"Reaction {reaction.reaction.emoticon} on post {post.message}")
-
-                    # 6. Check if user reacted to comments in discussion
-                    async for msg in client.iter_messages(discussion_peer, limit=limit):
-                        if msg.reactions and msg.reactions.recent_reactions:
-                            for reaction in msg.reactions.recent_reactions:
-                                if hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
-                                    reactions.add(f"Reaction {reaction.reaction.emoticon} on post {msg.message}")
+                    # 6. Check if user reacted to comments in discussion [TOO HEAVY]
+                    # async for msg in client.iter_messages(discussion_peer, limit=limit):
+                    #     if msg.reactions and msg.reactions.recent_reactions:
+                    #         for reaction in msg.reactions.recent_reactions:
+                    #             if hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
+                    #                 reactions.add(f"Reaction {reaction.reaction.emoticon} on post {msg.message}")
 
                 except Exception as e:
                     logging.error(f"⚠️ Skipping post {post.id}: {e}")
