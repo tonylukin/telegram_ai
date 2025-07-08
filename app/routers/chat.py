@@ -24,7 +24,7 @@ async def generate_reactions(body: GenerateReactionsBody, reaction_sender: React
 
 class GenerateMessagesBody(BaseModel):
     names: Optional[list[str]] = None
-    message: str
+    message: Optional[str] = None
 
 @router.post("/generate-messages")
 async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMessenger = Depends()):

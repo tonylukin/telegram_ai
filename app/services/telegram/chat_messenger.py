@@ -76,7 +76,7 @@ class ChatMessenger:
             logging.error(f"❌ Failed to send message to {chat.title}: {e}")
             return False
 
-    async def send_messages_to_chats_by_names(self, message: str, names: list[str] = None) -> list[dict[str, int]]:
+    async def send_messages_to_chats_by_names(self, message: str = None, names: list[str] = None) -> list[dict[str, int]]:
         self.chat_names = names
         if self.chat_names is None:
             self.chat_names = TELEGRAM_CHATS_TO_POST
@@ -124,7 +124,11 @@ class ChatMessenger:
                     await client(JoinChannelRequest(chat))
                     await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
-                message = self.ai_client.generate_text(AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=chat.title))
+                if self.message is None:
+                    prompt = 'Напиши короткий комментарий на "{post}" с легким снисхождением'.format(post=chat.title)
+                else:
+                    prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=chat.title)
+                message = self.ai_client.generate_text(prompt)
                 if await self.send_message(client=client, chat=chat, message=message):
                     result[chat.title] = 1
                     bot_comment = BotComment(

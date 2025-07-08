@@ -32,7 +32,7 @@ class AssignedChannelsMessenger:
         self.chat_names = None
         self.message = None
 
-    async def send_messages_to_assigned_channels(self, message: str, names: list[str] = None) -> list[dict[str, int]]:
+    async def send_messages_to_assigned_channels(self, message: str = None, names: list[str] = None) -> list[dict[str, int]]:
         clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
         self.message = message
         self.chat_names = names
@@ -91,7 +91,12 @@ class AssignedChannelsMessenger:
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_chat_id)
 
-                    message = self.ai_client.generate_text(AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=discussion.messages[0].message))
+                    # todo move it to configs (prompts)
+                    if self.message is None:
+                        prompt = 'Напиши короткий комментарий на "{post}" с легким снисхождением'.format(post=discussion.messages[0].message)
+                    else:
+                        prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=discussion.messages[0].message)
+                    message = self.ai_client.generate_text(prompt=prompt)
                     await client.send_message(
                         entity=discussion_peer,
                         message=message,
