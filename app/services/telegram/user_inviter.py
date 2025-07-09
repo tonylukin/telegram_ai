@@ -4,7 +4,7 @@ import random
 from fastapi.params import Depends
 from telethon.tl.functions.channels import InviteToChannelRequest, GetFullChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
-from telethon.tl.types import PeerChannel
+from telethon.tl.types import PeerChannel, User
 
 from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO
 from app.configs.logger import logging, logger
@@ -88,9 +88,14 @@ class UserInviter:
                     comments = await client.get_messages(discussion_peer, limit=count)
 
                     for comment in comments:
-                        user = await client.get_entity(comment.sender_id)
+                        if not comment.sender_id:
+                            continue
+                        try:
+                            user = await client.get_entity(comment.sender_id)
+                        except Exception:
+                            continue
                         invited_user = get_invited_users(self.session, tg_user_id=user.id, channel=target_channel)
-                        if user.is_self or user.bot or invited >= count or user.id in self.invitedUsers or invited_user is not None:
+                        if not isinstance(user, User) or user.is_self or user.bot or invited >= count or user.id in self.invitedUsers or invited_user is not None:
                             continue
                         self.invitedUsers.add(user.id)
 
@@ -103,7 +108,7 @@ class UserInviter:
                             logging.info(f"✅ Invited {user.username or user.id}")
                             invited += 1
                         except Exception as e:
-                            logging.error(f"❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
+                            logging.info(f"❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
                             continue
 
                         tg_user_invited = TgUserInvited(
