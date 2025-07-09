@@ -11,7 +11,7 @@ from app.config import TELEGRAM_CHANNELS_TO_COMMENT
 from app.configs.logger import logging
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
-from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
 
 
 def get_ai_client() -> AiClientBase:
@@ -25,14 +25,15 @@ class NewMessageChannelMessageSender:
         self.clients = []
 
     async def send_comments_on_new_messages(self):
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
-        await asyncio.gather(*(self.__start_client(client) for client in clients))
-        await asyncio.gather(*(client.run_until_disconnected() for client in clients))
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
+        await asyncio.gather(*(self.__start_client(client) for client in bot_clients))
+        await asyncio.gather(*(client.client.run_until_disconnected() for client in bot_clients))
 
-    async def __start_client(self, client: TelegramClient):
+    async def __start_client(self, bot_client: BotClient):
+        client = bot_client.client
         await client.start()
         channel_usernames = list(self.channels_configs.keys())
-        logging.info(f"✅ Started client: {client.session} for channels: {channel_usernames}")
+        logging.info(f"✅ Started client: {bot_client.get_name()} for channels: {channel_usernames}")
 
         @client.on(events.NewMessage(chats=channel_usernames))
         async def handler(event):

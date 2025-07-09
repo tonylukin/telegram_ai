@@ -2,20 +2,18 @@ import asyncio
 import random
 
 from fastapi.params import Depends
-from telethon import TelegramClient
 from telethon.tl.functions.channels import InviteToChannelRequest, GetFullChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel
 
 from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO
 from app.configs.logger import logging, logger
-from app.db.queries.bot import get_bot
 from app.db.queries.tg_user_invited import get_invited_users
 from app.db.session import Session
 from app.dependencies import get_db
 from app.models.tg_user_invited import TgUserInvited
 from app.services.telegram.clients_creator import ClientsCreator, \
-    get_bot_roles_to_invite
+    get_bot_roles_to_invite, BotClient
 from app.services.telegram.helpers import join_chats, get_chat_from_channel
 
 
@@ -32,23 +30,20 @@ class UserInviter:
         self.target_channels = TELEGRAM_CHATS_TO_INVITE_TO
 
     async def invite_users_from_comments(self, count: int = None) -> list[dict[str, int]]:
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
         if count is None:
             count = UserInviter.MAX_USERS
 
         return await asyncio.gather(
-            *(self.__start_client(client, self.source_channels, self.target_channels, count) for client in clients)
+            *(self.__start_client(client, self.source_channels, self.target_channels, count) for client in bot_clients)
         )
 
-    async def __start_client(self, client: TelegramClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
+    async def __start_client(self, bot_client: BotClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
+        client = bot_client.client
         await client.start()
-        logging.info(f"{client.session.filename} started")
+        logging.info(f"{bot_client.get_name()} started")
 
-        bot = get_bot(session=self.session, client=client)
-        if bot is None:
-            logging.error('Bot not found')
-            return {}
-
+        bot = bot_client.bot
         random.shuffle(channels)
         await join_chats(client, channels)
 
@@ -133,4 +128,4 @@ class UserInviter:
         finally:
             self.session.close()
 
-        return {client.session.filename: invited}
+        return {bot_client.get_name(): invited}

@@ -2,14 +2,13 @@ import asyncio
 import random
 
 from fastapi.params import Depends
-from telethon import TelegramClient
 from telethon.tl.functions.messages import SendReactionRequest
 from telethon.tl.types import Channel, PeerChannel
 from telethon.tl.types import ReactionEmoji
 
 from app.configs.logger import logging
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_react
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_react, BotClient
 
 
 class ReactionSender:
@@ -24,7 +23,8 @@ class ReactionSender:
         self.query = None
         self.reaction = None
 
-    async def __send_reactions_to_my_chats(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __send_reactions_to_my_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+        client = bot_client.client
         me = await client.get_me()
         dialogs = await client.get_dialogs()
         logging.info(f"Dialogs found: {len(dialogs)}")
@@ -63,10 +63,11 @@ class ReactionSender:
             except Exception as e:
                 logging.error(f"⚠️ Failed to react {reaction} to comment {entity.title}: {e}")
 
-        return {client.session.filename: counter}
+        return {bot_client.get_name(): counter}
 
-    async def __make_reactions_for_chat(self, client: TelegramClient, chat: Channel) -> dict[str, dict[str, int]]:
+    async def __make_reactions_for_chat(self, bot_client: BotClient, chat: Channel) -> dict[str, dict[str, int]]:
         counter = {}
+        client = bot_client.client
         try:
             logging.info(f"🧭 Sending reaction for: {chat.title}")
             messages = await client.get_messages(chat.id, limit=5)
@@ -99,24 +100,26 @@ class ReactionSender:
         except Exception as e:
             logging.error(f"❌ Chat {chat.title} error: {e}")
 
-        return {client.session.filename: counter}
+        return {bot_client.get_name(): counter}
 
-    async def __search_chats(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __search_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+        client = bot_client.client
         chats = await self.chat_searcher.search_chats(client, self.query)
         logging.info(f"Found {len(chats)} chats")
         result = {}
         for chat in chats:
-            result.update(await self.__make_reactions_for_chat(client=client, chat=chat))
+            result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
 
         return result
 
-    async def __start_client(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+        client = bot_client.client
         await client.start()
-        logging.info(f"{client.session.filename} started")
+        logging.info(f"{bot_client.get_name()} started")
         if self.query is not None:
-            result = await self.__search_chats(client=client)
+            result = await self.__search_chats(bot_client)
         else:
-            result = await self.__send_reactions_to_my_chats(client=client)
+            result = await self.__send_reactions_to_my_chats(bot_client)
 
         await client.disconnect()
         logging.info(f"Reactions sent: {result}")
@@ -125,6 +128,6 @@ class ReactionSender:
     async def send_reactions(self, query: str = None, reaction: str = None) -> list[dict[str, int]]:
         self.query = query
         self.reaction = reaction
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_react())
-        return await asyncio.gather(*(self.__start_client(client) for client in clients))
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_react())
+        return await asyncio.gather(*(self.__start_client(client) for client in bot_clients))
         # await asyncio.gather(*(client.run_until_disconnected() for client in self.clients))

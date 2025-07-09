@@ -1,6 +1,7 @@
 from datetime import timedelta, datetime
 
 from fastapi.params import Depends
+from sqlalchemy.orm import Session
 from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import Message, User, PeerChannel
@@ -8,14 +9,13 @@ from telethon.tl.types import Message, User, PeerChannel
 from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROMPT
 from app.configs.logger import logger
 from app.db.queries.tg_users import get_user_by_id
-from app.db.session import Session
 from app.dependencies import get_db
 from app.models.tg_user import TgUser
 from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.clients_creator import ClientsCreator, \
-    get_bot_roles_for_human_scanner
+    get_bot_roles_for_human_scanner, BotClient
 from app.services.telegram.helpers import get_chat_from_channel, resolve_tg_link, extract_username_or_name
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
@@ -34,14 +34,14 @@ class UserInfoCollector:
         self.ai_client = ai_client
         self.session = session
 
-    async def __init_client(self) -> TelegramClient:
+    def __init_client(self) -> BotClient:
         clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_for_human_scanner())
-        client = clients[0]
-        await client.start()
-        return client
+        return clients[0]
 
     async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None):
-        client = await self.__init_client()
+        bot_client = self.__init_client()
+        client = bot_client.client
+        await client.start()
 
         # first check linked chats and add them to initial array removing broadcast
         for chat_name in channel_usernames[:]:
@@ -97,9 +97,9 @@ class UserInfoCollector:
                 except Exception as e:
                     logger.error(f"⚠️ Search error {chat_name}: {e}")
 
-            if not user:
-                await client.disconnect()
-                raise ValueError(f"❌ User '{username}' not found in these channels: {channel_usernames}.")
+        if not user or not isinstance(user, User):
+            await client.disconnect()
+            raise ValueError(f"❌ User '{username}' not found in these channels: {channel_usernames}.")
 
         user_found = get_user_by_id(self.session, user.id)
         date_interval = datetime.now() - timedelta(weeks=4)

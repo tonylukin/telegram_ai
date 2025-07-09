@@ -1,19 +1,26 @@
 from typing import List
 
 from fastapi.params import Depends
+from sqlalchemy.orm import Session
 from telethon import TelegramClient
 
 from app.db.queries.bot import get_bots
 from app.dependencies import get_db
 from app.models.bot import Bot
-from app.db.session import Session
 
+class BotClient:
+    def __init__(self, client: TelegramClient, bot: Bot):
+        self.client = client
+        self.bot = bot
+
+    def get_name(self):
+        return self.bot.name
 
 class ClientsCreator:
     def __init__(self, session: Session = Depends(get_db)):
         self.session = session
 
-    def create_clients_from_bots(self, roles: list[str] = None) -> List[TelegramClient]:
+    def create_clients_from_bots(self, roles: list[str] = None) -> List[BotClient]:
         bots = get_bots(session=self.session, roles=roles)
         clients = []
         for bot in bots:
@@ -21,7 +28,7 @@ class ClientsCreator:
             api_hash = bot.app_token
             session = bot.name
             client = TelegramClient(api_id=api_id, api_hash=api_hash, session=f"sessions/{session}")
-            clients.append(client)
+            clients.append(BotClient(client, bot))
 
         return clients
 

@@ -2,18 +2,16 @@ import asyncio
 import random
 
 from fastapi.params import Depends
-from telethon import TelegramClient
+from sqlalchemy.orm import Session
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import Channel, PeerChannel, Message, MessageService
 
 from app.config import AI_POST_TEXT_TO_CHANNELS
 from app.configs.logger import logging
-from app.db.queries.bot import get_bot
 from app.db.queries.bot_comment import get_channel_comments
-from app.db.session import Session
 from app.dependencies import get_db
 from app.models.bot_comment import BotComment
-from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
 from app.services.telegram.helpers import join_chats
 from app.services.text_maker import TextMakerDependencyConfig
 
@@ -33,23 +31,20 @@ class AssignedChannelsMessenger:
         self.message = None
 
     async def send_messages_to_assigned_channels(self, message: str = None, names: list[str] = None) -> list[dict[str, int]]:
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
         self.message = message
         self.chat_names = names
 
         return await asyncio.gather(
-            *(self.__start_client(client) for client in clients)
+            *(self.__start_client(client) for client in bot_clients)
         )
 
-    async def __start_client(self, client: TelegramClient) -> dict[str, dict[str, int]]:
+    async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+        client = bot_client.client
         await client.start()
-        logging.info(f"{client.session.filename} started")
+        logging.info(f"{bot_client.get_name()} started")
 
-        bot = get_bot(session=self.session, client=client)
-        if bot is None:
-            logging.error('Bot not found')
-            return {}
-
+        bot = bot_client.bot
         result = {}
 
         if self.chat_names is not None:
@@ -130,4 +125,4 @@ class AssignedChannelsMessenger:
             self.session.close()
 
         logging.info(f"Messages sent: {result}")
-        return {client.session.filename: result}
+        return {bot_client.get_name(): result}

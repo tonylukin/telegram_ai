@@ -3,8 +3,6 @@ import random
 
 from fastapi.params import Depends
 from telethon import TelegramClient
-from telethon.errors import UserNotParticipantError, ChannelPrivateError
-from telethon.tl.functions.channels import GetParticipantRequest
 from telethon.tl.functions.channels import GetParticipantsRequest, JoinChannelRequest
 from telethon.tl.functions.messages import SendMessageRequest
 from telethon.tl.types import Channel, User
@@ -12,15 +10,14 @@ from telethon.tl.types import ChannelParticipantsSearch
 
 from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS
 from app.configs.logger import logging
-from app.db.queries.bot import get_bot
 from app.db.queries.bot_comment import get_channel_comments
 from app.db.session import Session
 from app.dependencies import get_db
 from app.models.bot_comment import BotComment
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment
-from app.services.text_maker import TextMakerDependencyConfig
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
 from app.services.telegram.helpers import is_user_in_group
+from app.services.text_maker import TextMakerDependencyConfig
 
 
 class ChatMessenger:
@@ -81,24 +78,22 @@ class ChatMessenger:
         if self.chat_names is None:
             self.chat_names = TELEGRAM_CHATS_TO_POST
         self.message = message
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
 
         chat_names = self.chat_names[:]
         random.shuffle(chat_names)
-        k, m = divmod(len(chat_names), len(clients))
+        k, m = divmod(len(chat_names), len(bot_clients))
         return await asyncio.gather(
             *(self.__start_client(client, chat_names[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]) for i, client in
-              enumerate(clients))
+              enumerate(bot_clients))
         )
 
-    async def __start_client(self, client: TelegramClient, chat_names: list[str]) -> dict[str, dict[str, int]]:
+    async def __start_client(self, bot_client: BotClient, chat_names: list[str]) -> dict[str, dict[str, int]]:
+        client = bot_client.client
         await client.start()
-        logging.info(f"{client.session.filename} started")
+        logging.info(f"{bot_client.get_name()} started")
 
-        bot = get_bot(session=self.session, client=client)
-        if bot is None:
-            logging.error('Bot not found')
-            return {}
+        bot = bot_client.bot
 
         chats = []
         for name in chat_names:
@@ -151,6 +146,6 @@ class ChatMessenger:
             logging.error(e)
         finally:
             self.session.close()
-        result = {client.session.filename: result}
+        result = {bot_client.get_name(): result}
         logging.info(f"Messages sent: {result}")
         return result
