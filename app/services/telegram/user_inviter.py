@@ -63,13 +63,13 @@ class UserInviter:
                     continue
                 if isinstance(linked_chat_id, int):
                     try:
-                        messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count)
+                        messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count * 3)
                     except Exception as e:
                         logger.error(f"Error {channel} [{linked_chat_id}]: {e}")
                         continue
                     channel_entities[channel] = await client.get_entity(linked_chat_id)
                 else:
-                    messages_by_channel[channel] = await client.get_messages(channel, limit=count)
+                    messages_by_channel[channel] = await client.get_messages(channel, limit=count * 3)
                     channel_entities[channel] = channel_entity
             except Exception as e:
                 logging.error(f"⚠️ Error getting channel messages: {e}")
@@ -85,7 +85,7 @@ class UserInviter:
                     ))
                     discussion_channel_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_channel_id)
-                    comments = await client.get_messages(discussion_peer, limit=count)
+                    comments = await client.get_messages(discussion_peer, limit=count * 4)
 
                     for comment in comments:
                         if not comment.sender_id:
