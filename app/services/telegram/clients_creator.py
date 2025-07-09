@@ -27,6 +27,7 @@ class ClientsCreator:
             api_id = bot.app_id
             api_hash = bot.app_token
             session = bot.name
+            self.session.expunge(bot)
             client = TelegramClient(api_id=api_id, api_hash=api_hash, session=f"sessions/{session}")
             clients.append(BotClient(client, bot))
 
