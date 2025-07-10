@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 from telethon import TelegramClient
 from telethon.tl.custom.message import Message
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
@@ -55,12 +57,17 @@ class UserMessagesSearch:
 
                 # 2. Get recent posts from the channel
                 posts = await client.get_messages(channel, limit=limit * 10)
+                if isinstance(posts, Message):
+                    posts = [posts]
             except Exception as e:
                 logging.error(f"Error getting info for {channel_username}: {e}")
                 continue
 
             comments = set()
             reactions = set()
+
+            if not isinstance(posts, Iterable):
+                continue
 
             for post in posts:
                 try:

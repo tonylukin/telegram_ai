@@ -1,3 +1,4 @@
+import traceback
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
@@ -21,5 +22,5 @@ async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector =
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"User info collector error: {e}")
+        logger.error(f"User info collector error: {e}", traceback.format_exc())
         raise HTTPException(status_code=500, detail='Please try again')

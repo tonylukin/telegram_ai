@@ -2,7 +2,6 @@ from datetime import timedelta, datetime
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
-from telethon import TelegramClient
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import Message, User, PeerChannel
 
@@ -76,7 +75,7 @@ class UserInfoCollector:
             except Exception as e:
                 await client.disconnect()
                 logger.error(f"User {username} not found: {e}")
-                raise e
+                raise ValueError('User not found')
         else:
             user = None
             for chat_name in channel_usernames:
