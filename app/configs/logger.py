@@ -1,8 +1,8 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from app.config import ENV
 
-ENV = os.getenv("ENV", "dev")
 LOG_DIR = "logs"
 LOG_FILE = "fastapi.log"
 

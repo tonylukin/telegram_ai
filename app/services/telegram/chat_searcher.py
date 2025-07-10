@@ -6,11 +6,22 @@ from telethon.tl.types import Channel
 class ChatSearcher:
 
     @staticmethod
-    async def search_chats(client: TelegramClient, query: str):
+    async def search_chats(client: TelegramClient, query: str) -> list[Channel]:
         result = await client(SearchRequest(q=query, limit=5))
-        results = [await client.get_entity(query)]
+        found_chat = None
+        results = []
+
+        try:
+            found_chat = await client.get_entity(query)
+            if isinstance(found_chat, Channel):
+                results.append(found_chat)
+            else:
+                found_chat = None
+        except:
+            pass
+
         for chat in result.chats:
-            if isinstance(chat, Channel) and chat.megagroup:
+            if isinstance(chat, Channel) and chat.megagroup and (found_chat is None or chat.id == found_chat.id):
                 results.append(chat)
 
         return results

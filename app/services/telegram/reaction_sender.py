@@ -2,6 +2,7 @@ import asyncio
 import random
 
 from fastapi.params import Depends
+from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import SendReactionRequest
 from telethon.tl.types import Channel, PeerChannel
 from telethon.tl.types import ReactionEmoji
@@ -108,7 +109,11 @@ class ReactionSender:
         logging.info(f"Found {len(chats)} chats")
         result = {}
         for chat in chats:
-            result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
+            try:
+                await client(JoinChannelRequest(chat))
+                result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
+            except Exception as e:
+                logging.error(f"Search chats error: {e}")
 
         return result
 
