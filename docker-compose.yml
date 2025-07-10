@@ -11,7 +11,7 @@ services:
     volumes:
       - ./sessions:/app/sessions
       - ./logs:/app/logs
-      - ./app/configs:/app/configs
+      - ./app/configs/settings.local.json:/app/app/configs/settings.local.json
     depends_on:
       - db
 
