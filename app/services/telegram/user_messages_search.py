@@ -103,6 +103,8 @@ class UserMessagesSearch:
                     #             if hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
                     #                 reactions.add(f"Reaction {reaction.reaction.emoticon} on post {msg.message}")
 
+                except ValueError:
+                    continue
                 except Exception as e:
                     logging.error(f"⚠️ Skipping post {post.id}: {e}")
                     continue

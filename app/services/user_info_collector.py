@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from telethon.tl.functions.users import GetFullUserRequest
-from telethon.tl.types import Message, User, PeerChannel
+from telethon.tl.types import Message, User, PeerChannel, Channel
 
 from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROMPT
 from app.configs.logger import logger
@@ -50,6 +50,10 @@ class UserInfoCollector:
                     logger.info(f"'{chat.username}' is User instance")
                     channel_usernames.remove(chat_name)
                     continue
+                if not isinstance(chat, Channel):
+                    logger.info(f"Chat is instance of '{type(chat)}'")
+                    channel_usernames.remove(chat_name)
+                    continue
 
                 if chat.username and chat.username != chat_name:
                     channel_usernames.remove(chat_name)
@@ -94,7 +98,7 @@ class UserInfoCollector:
                     if user:
                         break
                 except Exception as e:
-                    logger.error(f"⚠️ Search error {chat_name}: {e}")
+                    logger.error(f"⚠️ Search error {chat_name}")
 
         if not user or not isinstance(user, User):
             await client.disconnect()
