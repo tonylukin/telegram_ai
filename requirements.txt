@@ -16,3 +16,4 @@ aiohttp~=3.12.13
 python-telegram-bot>=20.0
 psycopg2-binary
 google-generativeai>=0.3.2
+aio_pika
