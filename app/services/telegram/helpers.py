@@ -4,14 +4,39 @@ from urllib.parse import urlparse
 
 from telethon import TelegramClient
 from telethon.errors import UserAlreadyParticipantError, FloodWaitError, UserNotParticipantError, ChannelPrivateError
-from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest, GetParticipantRequest
+from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest, GetParticipantRequest, \
+    GetParticipantsRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
-from telethon.tl.types import PeerChannel
+from telethon.tl.types import PeerChannel, ChannelParticipantsSearch
 from telethon.types import User
 from telethon.tl.types import Channel, Chat
 
 from app.configs.logger import logger
 
+
+async def has_antispam_bot(chat: Channel, client: TelegramClient) -> bool:
+    KNOWN_ANTISPAM_BOTS = {
+        "combot", "grouphelpbot", "shieldy_bot", "banofbot", "rose", "spambot"
+    }
+
+    try:
+        participants = await client(GetParticipantsRequest(
+            channel=chat,
+            filter=ChannelParticipantsSearch(""),
+            offset=0,
+            limit=100,
+            hash=0
+        ))
+
+        for user in participants.users:
+            if isinstance(user, User) and user.username:
+                uname = user.username.lower()
+                if uname in KNOWN_ANTISPAM_BOTS or any(
+                        bot in uname for bot in KNOWN_ANTISPAM_BOTS):
+                    return True
+    except Exception as e:
+        logger.error(f"⚠️ Could not check for antispam bots in {chat.title}: {e}")
+    return False
 
 async def get_user_by_username(client: TelegramClient, username: str) -> User | None:
     try:

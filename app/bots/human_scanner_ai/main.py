@@ -5,12 +5,15 @@ from telegram.ext import (
 )
 from telegram.constants import ParseMode
 import aiohttp
+import aio_pika
+import json
 
-from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST
+from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST, RABBITMQ_QUEUE_HUMAN_SCANNER, API_TOKEN
 from app.configs.logger import logger
+from app.config import ENV, RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 
 USERNAME, CHATS, CONFIRM = range(3)
-
+LOGGER_PREFIX = 'HumanScannerBot'
 user_data = {}
 
 
@@ -79,8 +82,8 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if query.data == "confirm":
         await query.edit_message_text(
-            "⏳ Запрос отправляется... \n"
-            "При первом запуске процесс может занимать время. Если получите ошибку, попробуйте еще раз"
+            "⏳ Запрос отправлен \n"
+            "Вы получите данные после выполнения задачи"
         )
         payload = {
             "username": user_data[chat_id]['username'],
@@ -109,9 +112,37 @@ async def retry_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def send_request_with_retry(query, payload):
+    # if ENV == 'prod': #todo uncomment
+    if True:
+        try:
+            connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
+            async with connection:
+                channel = await connection.channel()
+                queue = await channel.declare_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, durable=True)
+                message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id}).encode("utf-8")
+
+                message = aio_pika.Message(
+                    body=message_body,
+                    content_type="application/json",
+                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+                )
+                await channel.default_exchange.publish(
+                    message,
+                    routing_key=queue.name,
+                )
+
+        except Exception as e:
+            logger.error(f"{LOGGER_PREFIX} - adding to queue error: {str(e)}")
+
+        return ConversationHandler.END
+
+    ####### BELOW FOR DEV PURPOSES #######
     try:
+        headers = {
+            "Authorization": f"Bearer {API_TOKEN}"
+        }
         async with aiohttp.ClientSession() as session:
-            async with session.post(f"{APP_HOST}/user-info/collect", json=payload) as resp:
+            async with session.post(f"{APP_HOST}/user-info/collect", json=payload, headers=headers) as resp:
                 if resp.status == 200:
                     result = await resp.json()
                     desc = result["result"].get("description", "Нет описания.")
@@ -122,13 +153,12 @@ async def send_request_with_retry(query, payload):
                         f"📄 Результат:\n\n{desc or 'Активность в чатах не обнаружена'}",
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
-                    return CONFIRM
                 else:
                     await send_error_with_retry(query, f"⚠️ Ошибка сервера: {resp.status} {await resp.text()}")
-                    return CONFIRM
     except Exception as e:
         await send_error_with_retry(query, f"❌ Ошибка при запросе:\n{str(e)}")
-        return CONFIRM
+
+    return CONFIRM
 
 
 async def send_error_with_retry(query, error_text):

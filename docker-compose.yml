@@ -40,5 +40,25 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5677:5672"   # AMQP
+      - "15677:15672" # Web UI
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+
+  human_scanner_consumer:
+    image: tonylukin/telegram_ai:human_scanner_bot
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    env_file:
+      - .env
+    command: python3 app/consumers/human_scanner_consumer.py
+    depends_on:
+      - db
+
 volumes:
   pgdata:

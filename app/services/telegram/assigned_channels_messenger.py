@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import Channel, PeerChannel, Message, MessageService
 
-from app.config import AI_POST_TEXT_TO_CHANNELS
+from app.config import AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
 from app.configs.logger import logging
 from app.db.queries.bot_comment import get_channel_comments
 from app.dependencies import get_db
@@ -86,9 +86,8 @@ class AssignedChannelsMessenger:
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_chat_id)
 
-                    # todo move it to configs (prompts)
                     if self.message is None:
-                        prompt = 'Напиши короткий комментарий на "{post}" с легким снисхождением'.format(post=discussion.messages[0].message)
+                        prompt = AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE.format(post=discussion.messages[0].message)
                     else:
                         prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=discussion.messages[0].message)
                     message = self.ai_client.generate_text(prompt=prompt)

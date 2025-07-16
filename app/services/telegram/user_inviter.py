@@ -2,6 +2,7 @@ import asyncio
 import random
 
 from fastapi.params import Depends
+from sqlalchemy.orm import Session
 from telethon.tl.functions.channels import InviteToChannelRequest, GetFullChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel, User
@@ -9,7 +10,6 @@ from telethon.tl.types import PeerChannel, User
 from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO
 from app.configs.logger import logging, logger
 from app.db.queries.tg_user_invited import get_invited_users
-from app.db.session import Session
 from app.dependencies import get_db
 from app.models.tg_user_invited import TgUserInvited
 from app.services.telegram.clients_creator import ClientsCreator, \
@@ -18,7 +18,7 @@ from app.services.telegram.helpers import join_chats, get_chat_from_channel
 
 
 class UserInviter:
-    MAX_USERS = 20
+    MAX_USERS = 10 #todo to config
     DELAY_RANGE = (10, 20)
 
     def __init__(self, clients_creator: ClientsCreator = Depends(), session: Session = Depends(get_db)):
@@ -26,16 +26,18 @@ class UserInviter:
         self.clients = []
         self.invitedUsers = set()
         self.session = session
-        self.source_channels = TELEGRAM_CHATS_TO_INVITE_FROM #todo pass to constructor in future
-        self.target_channels = TELEGRAM_CHATS_TO_INVITE_TO
 
-    async def invite_users_from_comments(self, count: int = None) -> list[dict[str, int]]:
+    async def invite_users_from_comments(self,  source_channels: list[str] = None, target_channels: list[str] = None, count: int = None) -> list[dict[str, int]]:
         bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
         if count is None:
             count = UserInviter.MAX_USERS
+        if source_channels is None:
+            source_channels = TELEGRAM_CHATS_TO_INVITE_FROM
+        if target_channels is None:
+            target_channels = TELEGRAM_CHATS_TO_INVITE_TO
 
         return await asyncio.gather(
-            *(self.__start_client(client, self.source_channels, self.target_channels, count) for client in bot_clients)
+            *(self.__start_client(client, source_channels, target_channels, count) for client in bot_clients)
         )
 
     async def __start_client(self, bot_client: BotClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:

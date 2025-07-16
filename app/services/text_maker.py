@@ -3,10 +3,11 @@ import random
 from typing import TypedDict, List
 
 from fastapi.params import Depends
+from sqlalchemy.orm import Session
 
-from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, AI_MASS_NEWS_POST_TEXT
+from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, \
+    AI_MASS_NEWS_POST_TEXT, AI_NEWS_EMOTIONS
 from app.configs.logger import logging
-from app.db.session import Session
 from app.dependencies import get_db
 from app.models.news_post import NewsPost
 from app.services.ai.ai_client_base import AiClientBase
@@ -73,8 +74,9 @@ class TextMaker:
                 continue
 
             by_person = person or random.choice(self.persons)
+            emotion = random.choice(AI_NEWS_EMOTIONS)
             try:
-                text = self.ai_client.generate_text(AI_NEWS_POST_TEXT.format(news_text=news_text, by_person=by_person))
+                text = self.ai_client.generate_text(f"{emotion} {AI_NEWS_POST_TEXT.format(news_text=news_text, by_person=by_person)}")
                 image = None
                 if IMAGE_CREATION_PROBABILITY < 1 and random.choice(range(1, 101)) <= int(IMAGE_CREATION_PROBABILITY * 100):
                     image = self.ai_client_images.generate_image(AI_NEWS_POST_IMAGE.format(news_text=news_text, by_person=by_person))
@@ -100,8 +102,9 @@ class TextMaker:
                 )
             )
             by_person = person or random.choice(self.persons)
+            emotion = random.choice(AI_NEWS_EMOTIONS)
             text = self.ai_client.generate_text(
-                AI_MASS_NEWS_POST_TEXT.format(news_items=news_texts, by_person=by_person)
+                f"{emotion} {AI_MASS_NEWS_POST_TEXT.format(news_items=news_texts, by_person=by_person)}"
             )
 
             original = '\n\n'.join(news_texts)

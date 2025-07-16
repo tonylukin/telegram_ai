@@ -15,12 +15,14 @@ PYTHONPATH=. python3 app/console/reaction_sender_command.py
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/news/generate-texts' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{"count": 2}'
 ```
 - Then with no count:
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/news/generate-texts' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{}'
 ```
 
@@ -28,6 +30,7 @@ curl -X 'POST' 'http://127.0.0.1:8000/news/generate-texts' \
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-reactions' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{}'
 ```
 
@@ -35,12 +38,14 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-reactions' \
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-messages' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{"message": "news_luxury_narrator"}'
 
 ### Run script to generate comments to channels
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-comments' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{"message": "news_luxury_narrator"}'
 ```
 
@@ -48,6 +53,7 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-comments' \
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/chat/invite-users' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{}'
 ```
 
@@ -55,6 +61,7 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/invite-users' \
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/user-info/collect' \
      -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
      -d '{"username": "", "chats": [""]}'
 ```
 
