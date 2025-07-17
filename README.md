@@ -10,6 +10,11 @@ PYTHONPATH=. python3 app/console/channels_listener.py
 PYTHONPATH=. python3 app/console/reaction_sender_command.py
 ```
 
+### Run consumers
+```bash
+PYTHONPATH=. python3 app/consumers/human_scanner_consumer.py
+```
+
 ### Run script to generate news
 - First with some count:
 ```bash

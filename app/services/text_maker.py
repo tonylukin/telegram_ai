@@ -21,7 +21,8 @@ def get_news_maker() -> NewsMakerBase:
     return NewsApiClient()
 
 def get_ai_client() -> AiClientBase:
-    return GeminiClient()
+    return OpenAiClient()
+    # return GeminiClient()
 
 def get_ai_client_images() -> AiClientBase:
     # return HuggingFaceClient()
@@ -78,7 +79,7 @@ class TextMaker:
             try:
                 text = self.ai_client.generate_text(f"{emotion} {AI_NEWS_POST_TEXT.format(news_text=news_text, by_person=by_person)}")
                 image = None
-                if IMAGE_CREATION_PROBABILITY < 1 and random.choice(range(1, 101)) <= int(IMAGE_CREATION_PROBABILITY * 100):
+                if 1 >= IMAGE_CREATION_PROBABILITY >= random.random():
                     image = self.ai_client_images.generate_image(AI_NEWS_POST_IMAGE.format(news_text=news_text, by_person=by_person))
             except Exception as e:
                 logging.error(f'Skipping news {news_text}, error: {e}')

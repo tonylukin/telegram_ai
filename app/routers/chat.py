@@ -13,11 +13,12 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 
 class GenerateReactionsBody(BaseModel):
     query: Optional[str] = None
+    names: Optional[list[str]] = None
 
 @router.post("/generate-reactions")
 async def generate_reactions(body: GenerateReactionsBody, reaction_sender: ReactionSender = Depends()):
     try:
-        result = await reaction_sender.send_reactions(query=body.query)
+        result = await reaction_sender.send_reactions(query=body.query, names=body.names)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

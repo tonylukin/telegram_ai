@@ -31,7 +31,7 @@ class HumanScannerConsumer(BaseConsumer):
             )
 
     @staticmethod
-    async def __get_desc_from_api(payload: dict[str, str]) -> str | None:
+    async def __get_desc_from_api(payload: dict[str, str]) -> str:
         headers = {
             "Authorization": f"Bearer {API_TOKEN}"
         }
@@ -39,7 +39,12 @@ class HumanScannerConsumer(BaseConsumer):
             async with session.post(f"{APP_HOST}/user-info/collect", json=payload, headers=headers) as resp:
                 if resp.status == 200:
                     result = await resp.json()
-                    desc = result["result"].get("description", "Нет описания.")
+
+                    if not result["result"]:
+                        desc = 'Empty result'
+                    else:
+                        desc = result["result"].get("description")
+
                     return desc
                 elif resp.status == 400:
                     desc = 'User not found'

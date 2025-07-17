@@ -113,7 +113,7 @@ class AssignedChannelsMessenger:
             except Exception as e:
                 logging.error(f"❌ Error in {chat.title}: {e}")
 
-        await client.disconnect()
+        await self.clients_creator.disconnect_client(client)
 
         try:
             self.session.commit()

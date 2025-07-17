@@ -34,7 +34,7 @@ class UserInfoCollector:
         self.session = session
 
     def __init_client(self) -> BotClient:
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_for_human_scanner())
+        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_for_human_scanner(), limit=1)
         return clients[0]
 
     async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None):
@@ -77,7 +77,7 @@ class UserInfoCollector:
             try:
                 user = await client.get_entity(username)
             except Exception as e:
-                await client.disconnect()
+                await self.clients_creator.disconnect_client(client)
                 logger.error(f"User {username} not found: {e}")
                 raise ValueError('User not found')
         else:
@@ -101,14 +101,14 @@ class UserInfoCollector:
                     logger.error(f"⚠️ Search error {chat_name}")
 
         if not user or not isinstance(user, User):
-            await client.disconnect()
+            await self.clients_creator.disconnect_client(client)
             raise ValueError(f"❌ User '{username}' not found in these channels: {channel_usernames}.")
 
         user_found = get_user_by_id(self.session, user.id)
         date_interval = datetime.now() - timedelta(weeks=4)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:
             logger.info(f"User {user_found.nickname}[{user_found.tg_id}] has fresh info")
-            await client.disconnect()
+            await self.clients_creator.disconnect_client(client)
             return user_found.description
 
         try:
@@ -120,7 +120,7 @@ class UserInfoCollector:
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
         comments_reactions_by_channel = await UserMessagesSearch.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user)
 
-        await client.disconnect()
+        await self.clients_creator.disconnect_client(client)
 
         messages = [] # todo add messages from DB here
         reactions = []

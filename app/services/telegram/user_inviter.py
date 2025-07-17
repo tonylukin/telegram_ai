@@ -125,7 +125,7 @@ class UserInviter:
                 except Exception as e:
                     logging.error(f"⚠️ Error getting discussion: {e}")
 
-        await client.disconnect()
+        await self.clients_creator.disconnect_client(client)
 
         try:
             self.session.commit()

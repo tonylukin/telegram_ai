@@ -5,18 +5,18 @@ from fastapi.params import Depends
 from telethon import TelegramClient
 from telethon.tl.functions.channels import GetParticipantsRequest, JoinChannelRequest
 from telethon.tl.functions.messages import SendMessageRequest
-from telethon.tl.types import Channel, User
+from telethon.tl.types import Channel, User, PeerChannel
 from telethon.tl.types import ChannelParticipantsSearch
 
 from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
-from app.configs.logger import logging
+from app.configs.logger import logging, logger
 from app.db.queries.bot_comment import get_channel_comments
 from app.db.session import Session
 from app.dependencies import get_db
 from app.models.bot_comment import BotComment
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
-from app.services.telegram.helpers import is_user_in_group, has_antispam_bot
+from app.services.telegram.helpers import is_user_in_group, has_antispam_bot, get_chat_from_channel
 from app.services.text_maker import TextMakerDependencyConfig
 
 
@@ -37,7 +37,7 @@ class ChatMessenger:
         self.message = None
 
     @staticmethod
-    async def send_message(client: TelegramClient, chat: Channel, message: str) -> bool:
+    async def send_message(client: TelegramClient, chat: Channel | PeerChannel, message: str) -> bool:
         try:
             await client(SendMessageRequest(
                 peer=chat.id,
@@ -72,11 +72,32 @@ class ChatMessenger:
         bot = bot_client.bot
 
         chats = []
+        post_texts = {}
         for name in chat_names:
             try:
                 chat = await client.get_entity(name)
-                if isinstance(chat, Channel) and chat.megagroup:
+                if not isinstance(chat, Channel):
+                    logger.info(f"{name}: Not a Channel")
+                    continue
+
+                last_messages = await client.get_messages(chat.id, limit=5)
+                post_text = chat.title
+                if last_messages:
+                    post_text = random.choice(last_messages).message
+
+                linked_chat_id = await get_chat_from_channel(client, chat)
+                if linked_chat_id is None:
                     chats.append(chat)
+                    post_texts[chat.id] = post_text
+                    continue
+
+                if isinstance(linked_chat_id, int):
+                    linked_chat = PeerChannel(int(linked_chat_id))
+                    linked_chat.title = chat.title
+                    linked_chat.id = linked_chat.channel_id
+                    chats.append(linked_chat)
+                    post_texts[linked_chat.id] = post_text
+
             except Exception as e:
                 logging.error(f"{name}: {e}")
 
@@ -95,10 +116,11 @@ class ChatMessenger:
                     await client(JoinChannelRequest(chat))
                     await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
+                post_text = post_texts[chat.id]
                 if self.message is None:
-                    prompt = AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE.format(post=chat.title)
+                    prompt = AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE.format(post=post_text)
                 else:
-                    prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=chat.title)
+                    prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=post_text)
                 message = self.ai_client.generate_text(prompt)
                 if await self.send_message(client=client, chat=chat, message=message):
                     result[chat.title] = 1
@@ -113,7 +135,7 @@ class ChatMessenger:
             except Exception as e:
                 logging.error(f"Error [{chat.title}]: {e}")
 
-        await client.disconnect()
+        await self.clients_creator.disconnect_client(client)
 
         try:
             self.session.commit()

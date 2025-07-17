@@ -1,9 +1,12 @@
+import sqlite3
+import asyncio
 from typing import List
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from telethon import TelegramClient
 
+from app.configs.logger import logger
 from app.db.queries.bot import get_bots
 from app.dependencies import get_db
 from app.models.bot import Bot
@@ -20,7 +23,7 @@ class ClientsCreator:
     def __init__(self, session: Session = Depends(get_db)):
         self.session = session
 
-    def create_clients_from_bots(self, roles: list[str] = None) -> List[BotClient]:
+    def create_clients_from_bots(self, roles: list[str] = None, limit: int = None) -> List[BotClient]:
         bots = get_bots(session=self.session, roles=roles)
         clients = []
         for bot in bots:
@@ -32,6 +35,17 @@ class ClientsCreator:
             clients.append(BotClient(client, bot))
 
         return clients
+
+    async def disconnect_client(self, client: TelegramClient):
+        for _ in range(3):
+            try:
+                await client.disconnect()
+                break
+            except sqlite3.OperationalError as e:
+                logger.error(f"Could not disconnect client {e}")
+                await asyncio.sleep(2)
+        else:
+            raise RuntimeError("Could not disconnect client after retries")
 
 def get_bot_roles_to_react() -> list[str]:
     return [Bot.ROLE_REACT]

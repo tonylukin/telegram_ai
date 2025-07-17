@@ -23,6 +23,7 @@ class ReactionSender:
         self.chat_searcher = chat_searcher
         self.query = None
         self.reaction = None
+        self.names = None
 
     async def __send_reactions_to_my_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
@@ -71,33 +72,26 @@ class ReactionSender:
         client = bot_client.client
         try:
             logging.info(f"🧭 Sending reaction for: {chat.title}")
-            messages = await client.get_messages(chat.id, limit=5)
+            messages = await client.get_messages(chat.id, limit=10)
+            discussion_peer = PeerChannel(chat.id)
+            me = await client.get_me()
+
             for message in messages:
-                if message.sender_id == (await client.get_me()).id:
+                if message.sender_id == me.id or message.out or random.random() > 0.5:
                     logging.warning('it is my post')
                     continue
 
                 reaction = self.reaction if self.reaction is not None else random.choice(self.REACTIONS)
                 try:
-                    discussion_peer = PeerChannel(chat.id)
-
-                    comments = await client.get_messages(discussion_peer, limit=5)
-                    for comment in comments:
-                        if comment.out:
-                            continue
-
-                        try:
-                            await client(SendReactionRequest(
-                                peer=discussion_peer,
-                                msg_id=comment.id,
-                                reaction=[ReactionEmoji(emoticon=reaction)]
-                            ))
-                            logging.info(f"Reacted to comment {comment.id} in {chat.title}")
-                            counter[chat.title] = counter.get(chat.title, 0) + 1
-                        except Exception as e:
-                            logging.error(f"⚠️ Failed to react {reaction}: {e}")
+                    await client(SendReactionRequest(
+                        peer=discussion_peer,
+                        msg_id=message.id,
+                        reaction=[ReactionEmoji(emoticon=reaction)]
+                    ))
+                    logging.info(f"Reacted to comment {message.id} in {chat.title}")
+                    counter[chat.title] = counter.get(chat.title, 0) + 1
                 except Exception as e:
-                    logging.error(f"⚠️ Could not send reaction: {e}")
+                    logging.error(f"⚠️ Failed to react {reaction}: {e}")
         except Exception as e:
             logging.error(f"❌ Chat {chat.title} error: {e}")
 
@@ -117,22 +111,45 @@ class ReactionSender:
 
         return result
 
+    async def __send_to_specific_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+        client = bot_client.client
+        result = {}
+        chats = []
+        for name in self.names:
+            try:
+                chat = await client.get_entity(name)
+                chats.append(chat)
+            except Exception as e:
+                logging.error(f"Getting chat instance error: {e}")
+
+        for chat in chats:
+            try:
+                await client(JoinChannelRequest(chat))
+                result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
+            except Exception as e:
+                logging.error(f"Search chats error: {e}")
+
+        return result
+
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
         await client.start()
         logging.info(f"{bot_client.get_name()} started")
-        if self.query is not None:
+        if self.names is not None:
+            result = await self.__send_to_specific_chats(bot_client)
+        elif self.query is not None:
             result = await self.__search_chats(bot_client)
         else:
             result = await self.__send_reactions_to_my_chats(bot_client)
 
-        await client.disconnect()
+        await self.clients_creator.disconnect_client(client)
         logging.info(f"Reactions sent: {result}")
         return result
 
-    async def send_reactions(self, query: str = None, reaction: str = None) -> list[dict[str, int]]:
+    async def send_reactions(self, query: str = None, reaction: str = None, names: list[str] = None) -> list[dict[str, int]]:
         self.query = query
         self.reaction = reaction
+        self.names = names
         bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_react())
         return await asyncio.gather(*(self.__start_client(client) for client in bot_clients))
         # await asyncio.gather(*(client.run_until_disconnected() for client in self.clients))
