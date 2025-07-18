@@ -6,7 +6,7 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
 from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, \
-    AI_MASS_NEWS_POST_TEXT, AI_NEWS_EMOTIONS
+    AI_MASS_NEWS_POST_TEXT, AI_NEWS_EMOTIONS, AI_MASS_NEWS_POST_IMAGE
 from app.configs.logger import logging
 from app.dependencies import get_db
 from app.models.news_post import NewsPost
@@ -21,8 +21,8 @@ def get_news_maker() -> NewsMakerBase:
     return NewsApiClient()
 
 def get_ai_client() -> AiClientBase:
-    return OpenAiClient()
-    # return GeminiClient()
+    # return OpenAiClient()
+    return GeminiClient()
 
 def get_ai_client_images() -> AiClientBase:
     # return HuggingFaceClient()
@@ -49,6 +49,7 @@ class TextMakerDependencyConfig:
 class Response(TypedDict):
     original: str | None
     generated: str
+    emotion: str
     person: str | None
     image: str | None
 
@@ -84,7 +85,7 @@ class TextMaker:
             except Exception as e:
                 logging.error(f'Skipping news {news_text}, error: {e}')
                 continue
-            response = Response(original=news_text, generated=text, person=by_person, image=image)
+            response = Response(original=news_text, generated=text, person=by_person, image=image, emotion=emotion)
             response_list.append(response)
             self.__save_to_db(response, external_id)
 
@@ -107,6 +108,11 @@ class TextMaker:
             text = self.ai_client.generate_text(
                 f"{emotion} {AI_MASS_NEWS_POST_TEXT.format(news_items=news_texts, by_person=by_person)}"
             )
+            image = None
+            if 1 >= IMAGE_CREATION_PROBABILITY >= random.random():
+                image = self.ai_client_images.generate_image(
+                    AI_MASS_NEWS_POST_IMAGE.format(news_text=news_texts, by_person=by_person)
+                )
 
             original = '\n\n'.join(news_texts)
             external_id = TextMaker.__generate_external_id(original)
@@ -116,7 +122,7 @@ class TextMaker:
             logging.error(e)
             return []
 
-        response = Response(generated=text, person=by_person, original=original, image=None)
+        response = Response(generated=text, person=by_person, original=original, image=image, emotion=emotion)
         self.__save_to_db(response, external_id)
         return [response]
 

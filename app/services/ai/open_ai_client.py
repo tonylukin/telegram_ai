@@ -14,13 +14,10 @@ class OpenAiClient(AiClientBase):
         self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     def generate_text(self, prompt: str):
-        pass
         model: str = "gpt-4"
-        max_tokens: int = 100
         response = self.client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens
         )
         return response.choices[0].message.content
 

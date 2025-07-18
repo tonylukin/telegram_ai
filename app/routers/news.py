@@ -21,9 +21,9 @@ def generate_texts(body: GenerateTextBody, config: TextMakerDependencyConfig = D
         result = True
         for text in texts:
             if count is None:
-                view = f"<strong>{text['person']} читает сегодняшние новости</strong> \n\n"
+                view = f"<strong>{text['person']} {text['emotion']} читает сегодняшние новости</strong> \n\n"
             else:
-                view = f"<strong>{text['person']} читает новость</strong> \n\n"
+                view = f"<strong>{text['person']} {text['emotion']} читает новость</strong> \n\n"
             view += f"{text['generated']}\n"
             view += f"<blockquote>{text['original']}</blockquote>"
             result &= send_telegram_message(view, text['image'])
