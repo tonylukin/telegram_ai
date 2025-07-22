@@ -8,6 +8,8 @@ class Bot(Base):
     ROLE_REACT = 'react'
     ROLE_HUMAN_SCANNER = 'human_scanner'
 
+    STATUS_BUSY = 'busy'
+
     __tablename__ = "bots"
     __table_args__ = (
         Index('ux_bots_name', 'name'),
@@ -19,5 +21,6 @@ class Bot(Base):
     app_id = Column(Integer, nullable=True)
     app_token = Column(String(32), nullable=True)
     roles = Column(ARRAY(String), nullable=True)
+    status = Column(String, nullable=True)
 
     comments = relationship("BotComment", back_populates="bot", lazy="selectin")

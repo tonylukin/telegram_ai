@@ -22,5 +22,5 @@ async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector =
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"User info collector error: {e}", traceback.format_exc())
+        logger.error(f"User info collector error: {e}", traceback.format_exc()) # todo check for traceback - do we need it?
         raise HTTPException(status_code=500, detail='Please try again')

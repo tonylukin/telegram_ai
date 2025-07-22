@@ -42,7 +42,7 @@ class UserInviter:
 
     async def __start_client(self, bot_client: BotClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
         client = bot_client.client
-        await client.start()
+        await self.clients_creator.start_client(bot_client)
         logging.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot
@@ -125,14 +125,12 @@ class UserInviter:
                 except Exception as e:
                     logging.error(f"⚠️ Error getting discussion: {e}")
 
-        await self.clients_creator.disconnect_client(client)
+        await self.clients_creator.disconnect_client(bot_client)
 
         try:
             self.session.commit()
         except Exception as e:
             self.session.rollback()
             logging.error(e)
-        finally:
-            self.session.close()
 
         return {bot_client.get_name(): invited}

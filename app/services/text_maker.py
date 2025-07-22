@@ -146,5 +146,3 @@ class TextMaker:
         except Exception as e:
             self.session.rollback()
             logging.error(e)
-        finally:
-            self.session.close()

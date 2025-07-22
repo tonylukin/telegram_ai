@@ -13,6 +13,7 @@ from app.models.tg_user import TgUser
 from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient
+from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_bot_roles_for_human_scanner, BotClient
 from app.services.telegram.helpers import get_chat_from_channel, resolve_tg_link, extract_username_or_name
@@ -27,25 +28,39 @@ class UserInfoCollector:
             self,
             clients_creator: ClientsCreator = Depends(),
             ai_client: AiClientBase = Depends(get_ai_client),
+            chat_searcher: ChatSearcher = Depends(),
             session: Session = Depends(get_db)
     ):
         self.clients_creator = clients_creator
         self.ai_client = ai_client
+        self.chat_searcher = chat_searcher
         self.session = session
 
     def __init_client(self) -> BotClient:
-        clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_for_human_scanner(), limit=1)
-        return clients[0]
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_for_human_scanner(), limit=1)
+        if len(bot_clients) == 0:
+            raise Exception('No bots found')
+        return bot_clients[0]
 
     async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None):
         bot_client = self.__init_client()
         client = bot_client.client
-        await client.start()
+        await self.clients_creator.start_client(bot_client)
 
         # first check linked chats and add them to initial array removing broadcast
         for chat_name in channel_usernames[:]:
             try:
                 chat = await resolve_tg_link(client, chat_name)
+                if chat is None:
+                    found_channels = await self.chat_searcher.search_chats(client, chat_name)
+                    logger.info(f"Found channels [{len(found_channels)}] for {chat_name}")
+                    channel_usernames.remove(chat_name)
+                    if len(found_channels) == 0:
+                        continue
+
+                    channel_usernames.extend([str(found_channel.id) for found_channel in found_channels])
+                    continue
+
                 if isinstance(chat, User):
                     logger.info(f"'{chat.username}' is User instance")
                     channel_usernames.remove(chat_name)
@@ -77,7 +92,7 @@ class UserInfoCollector:
             try:
                 user = await client.get_entity(username)
             except Exception as e:
-                await self.clients_creator.disconnect_client(client)
+                await self.clients_creator.disconnect_client(bot_client)
                 logger.error(f"User {username} not found: {e}")
                 raise ValueError('User not found')
         else:
@@ -101,14 +116,14 @@ class UserInfoCollector:
                     logger.error(f"⚠️ Search error {chat_name}")
 
         if not user or not isinstance(user, User):
-            await self.clients_creator.disconnect_client(client)
+            await self.clients_creator.disconnect_client(bot_client)
             raise ValueError(f"❌ User '{username}' not found in these channels: {channel_usernames}.")
 
         user_found = get_user_by_id(self.session, user.id)
         date_interval = datetime.now() - timedelta(weeks=4)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:
             logger.info(f"User {user_found.nickname}[{user_found.tg_id}] has fresh info")
-            await self.clients_creator.disconnect_client(client)
+            await self.clients_creator.disconnect_client(bot_client)
             return user_found.description
 
         try:
@@ -120,7 +135,7 @@ class UserInfoCollector:
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
         comments_reactions_by_channel = await UserMessagesSearch.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user)
 
-        await self.clients_creator.disconnect_client(client)
+        await self.clients_creator.disconnect_client(bot_client)
 
         messages = [] # todo add messages from DB here
         reactions = []
@@ -144,6 +159,7 @@ class UserInfoCollector:
             "is_bot": user.bot,
             "is_verified": user.verified,
             "comment_count": len(messages),
+            "reaction_count": len(reactions),
             "description": '\n\n'.join(desc),
         }
         self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, desc=full_desc)
@@ -189,5 +205,3 @@ class UserInfoCollector:
         except Exception as e:
             self.session.rollback()
             logger.error(e)
-        finally:
-            self.session.close()

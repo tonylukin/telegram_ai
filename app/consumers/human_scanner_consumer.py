@@ -13,7 +13,7 @@ from app.consumers.base_consumer import BaseConsumer
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN}"
 
 class HumanScannerConsumer(BaseConsumer):
-    async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage):
+    async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage) -> bool:
         data = json.loads(message.body.decode())
         logger.info(f"📥 Received: {data}")
         chat_id = data['chat_id']
@@ -21,6 +21,7 @@ class HumanScannerConsumer(BaseConsumer):
         desc = await self.__get_desc_from_api(payload)
 
         await self.__send_message(chat_id, desc)
+        return True
 
     @staticmethod
     async def __send_message(chat_id: int, text: str):
@@ -44,6 +45,10 @@ class HumanScannerConsumer(BaseConsumer):
                         desc = 'Empty result'
                     else:
                         desc = result["result"].get("description")
+                        desc += "\n"
+                        desc += f"Comment count: {result['result'].get('comment_count')}, reaction count: {result['result'].get('reaction_count')}"
+                        desc += "\n"
+                        desc += "Powered by @humanscannerai"
 
                     return desc
                 elif resp.status == 400:

@@ -48,7 +48,7 @@ async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[chat_id]['username'] = update.message.text
 
     await update.message.reply_text(
-        "Теперь введите список чатов, где у юзера есть активность (через запятую: @chat1, https://t.me/chat2, t.me/+инвайт).\n"
+        "Теперь введите список чатов, где у юзера есть активность (через запятую: @chat1, https://t.me/chat2, t.me/+инвайт, либо название для поиска).\n"
         "Поддерживаются каналы (и их чаты) и обычные чаты.\n"
         "Чаты/каналы должны быть публичными (либо нужна ссылка-приглашение)."
     )

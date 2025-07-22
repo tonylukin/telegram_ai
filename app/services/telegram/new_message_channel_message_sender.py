@@ -31,7 +31,7 @@ class NewMessageChannelMessageSender:
 
     async def __start_client(self, bot_client: BotClient):
         client = bot_client.client
-        await client.start()
+        await self.clients_creator.start_client(bot_client)
         channel_usernames = list(self.channels_configs.keys())
         logging.info(f"✅ Started client: {bot_client.get_name()} for channels: {channel_usernames}")
 

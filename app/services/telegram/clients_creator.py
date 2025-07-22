@@ -15,31 +15,49 @@ class BotClient:
     def __init__(self, client: TelegramClient, bot: Bot):
         self.client = client
         self.bot = bot
+        self.bot_name = bot.name
 
     def get_name(self):
-        return self.bot.name
+        return self.bot_name
 
 class ClientsCreator:
     def __init__(self, session: Session = Depends(get_db)):
         self.session = session
 
     def create_clients_from_bots(self, roles: list[str] = None, limit: int = None) -> List[BotClient]:
-        bots = get_bots(session=self.session, roles=roles)
+        bots = get_bots(session=self.session, roles=roles, limit=limit)
         clients = []
         for bot in bots:
             api_id = bot.app_id
             api_hash = bot.app_token
             session = bot.name
-            self.session.expunge(bot)
             client = TelegramClient(api_id=api_id, api_hash=api_hash, session=f"sessions/{session}")
             clients.append(BotClient(client, bot))
 
         return clients
 
-    async def disconnect_client(self, client: TelegramClient):
+    async def start_client(self, bot_client: BotClient):
+        try:
+            if not bot_client.client.is_connected():
+                await bot_client.client.start()
+            bot_client.bot.status = Bot.STATUS_BUSY
+            self.session.flush()
+
+        except Exception as e:
+            logger.error(f"Could not start client {e}")
+            if bot_client.client.is_connected():
+                await bot_client.client.disconnect()
+            raise RuntimeError("Could not start client")
+
+    async def disconnect_client(self, bot_client: BotClient):
         for _ in range(3):
             try:
-                await client.disconnect()
+                if bot_client.client.is_connected():
+                    await bot_client.client.disconnect()
+                if bot_client.bot.status is not None:
+                    bot_client.bot.status = None
+                    self.session.flush()
+
                 break
             except sqlite3.OperationalError as e:
                 logger.error(f"Could not disconnect client {e}")

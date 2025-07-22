@@ -1,4 +1,5 @@
-from app.db.session import Session
+from sqlalchemy.orm import Session
+
 from app.models.bot import Bot
 from app.models.bot_comment import BotComment
 from datetime import datetime, timedelta

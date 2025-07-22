@@ -41,7 +41,7 @@ class AssignedChannelsMessenger:
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
-        await client.start()
+        await self.clients_creator.start_client(bot_client)
         logging.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot
@@ -113,15 +113,13 @@ class AssignedChannelsMessenger:
             except Exception as e:
                 logging.error(f"❌ Error in {chat.title}: {e}")
 
-        await self.clients_creator.disconnect_client(client)
+        await self.clients_creator.disconnect_client(bot_client)
 
         try:
             self.session.commit()
         except Exception as e:
             self.session.rollback()
             logging.error(e)
-        finally:
-            self.session.close()
 
         logging.info(f"Messages sent: {result}")
         return {bot_client.get_name(): result}

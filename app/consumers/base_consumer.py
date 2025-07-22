@@ -6,9 +6,9 @@ from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 from app.configs.logger import logger
 
 class BaseConsumer(ABC):
-    MAX_RETRIES = 3
+    MAX_RETRIES = 5
     RETRY_DELAY = 5
-    MESSAGE_RETRY_DELAY = 300
+    MESSAGE_RETRY_DELAY = 180
 
     def __init__(self, queue: str, message_retry_delay: int = MESSAGE_RETRY_DELAY):
         self.queue = queue
@@ -18,8 +18,7 @@ class BaseConsumer(ABC):
         while True:
             try:
                 logger.info("🚀 Connecting to RabbitMQ…")
-                connection = await aio_pika.connect_robust(
-                    f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
+                connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
                 async with connection:
                     channel = await connection.channel()
                     await channel.set_qos(prefetch_count=1)
@@ -36,19 +35,34 @@ class BaseConsumer(ABC):
                 await asyncio.sleep(BaseConsumer.RETRY_DELAY)
 
     async def __handle_message(self, message: aio_pika.abc.AbstractIncomingMessage):
-        async with message.process(requeue=False):
+        success = False
+
+        try:
             for attempt in range(1, BaseConsumer.MAX_RETRIES + 1):
                 try:
-                    await self.handle_message(message)
-                    break
+                    logger.info(f"📥 Processing message: attempt {attempt}")
+                    result = await self.handle_message(message)
+
+                    if result:
+                        await message.ack()
+                        success = True
+                        break
+                    else:
+                        raise Exception("handle_message returned False")
+
                 except Exception as e:
                     logger.error(f"❌ [{attempt}] Error processing message: {e}")
                     if attempt < BaseConsumer.MAX_RETRIES:
                         await asyncio.sleep(self.message_retry_delay)
                     else:
-                        await message.nack(requeue=True)
-                        logger.error("🚫 Max retries reached, message requeued")
+                        logger.error("🚫 Max retries reached, will requeue message")
+        finally:
+            if not success:
+                try:
+                    await message.nack(requeue=True)
+                except Exception as nack_err:
+                    logger.error(f"⚠️ Failed to nack message: {nack_err}")
 
     @abstractmethod
-    async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage):
+    async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage) -> bool:
         pass

@@ -120,6 +120,8 @@ async def get_chat_from_channel(client: TelegramClient, channel: Channel) -> Cha
 
 
 async def resolve_tg_link(client, link: str):
+    if not re.match(r'^((@\w+)|(https?://[^\s]+)|(t\.me/[^\s]+)|(telegram\.me/[^\s]+))', link):
+        return None
     """
     Универсальный парсер Telegram-ссылки: t.me/username или t.me/+invite
     Возвращает entity (Channel, Chat и т.п.)
