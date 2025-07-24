@@ -70,7 +70,7 @@ class UserInfoCollector:
                     channel_usernames.remove(chat_name)
                     continue
 
-                if chat.username and chat.username != chat_name:
+                if chat.username and '@' + chat.username != chat_name:
                     channel_usernames.remove(chat_name)
                     channel_usernames.append(chat.username)
 
@@ -106,7 +106,7 @@ class UserInfoCollector:
                     async for msg in client.iter_messages(chat, limit=5000):
                         if isinstance(msg, Message) and msg.sender and isinstance(msg.sender, User):
                             full_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip().lower()
-                            if username.lower() in full_name:
+                            if username.lower() in full_name or username.lower() in msg.message.lower():
                                 user = msg.sender
                                 logger.info(f"User found #{user.id} [{full_name}]")
                                 break
@@ -162,7 +162,8 @@ class UserInfoCollector:
             "reaction_count": len(reactions),
             "description": '\n\n'.join(desc),
         }
-        self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, desc=full_desc)
+        if desc:
+            self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, desc=full_desc)
         return full_desc
 
     def __save_to_db(self, user: User, comments_reactions_by_channel: dict[str, dict[str, set[str]]], desc: dict[str, str]) -> None:

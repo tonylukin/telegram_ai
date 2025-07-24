@@ -4,9 +4,10 @@ import aiohttp
 import json
 
 from fastapi import HTTPException
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 from app.config import RABBITMQ_QUEUE_HUMAN_SCANNER, \
-    TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST, API_TOKEN
+    TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST, API_TOKEN, ENV
 from app.configs.logger import logger
 from app.consumers.base_consumer import BaseConsumer
 
@@ -25,10 +26,25 @@ class HumanScannerConsumer(BaseConsumer):
 
     @staticmethod
     async def __send_message(chat_id: int, text: str):
+        text = text or 'No data'
+        keyboard = [
+            # [InlineKeyboardButton("🔄 Начать сначала", callback_data="human_scan")],
+            [InlineKeyboardButton("🔄 Начать сначала", callback_data="restart")],
+            [InlineKeyboardButton("📋 Поделиться", switch_inline_query=f"{text}\n\nPowered by @HumanScannerAIBot")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+        if ENV == 'dev':
+            logger.info(f"Sending message to {chat_id}: {text}")
         async with aiohttp.ClientSession() as session:
             await session.post(
                 f"{TELEGRAM_API}/sendMessage",
-                json={"chat_id": chat_id, "text": text}
+                json={
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "reply_markup": reply_markup.to_dict()
+                }
             )
 
     @staticmethod
@@ -41,18 +57,17 @@ class HumanScannerConsumer(BaseConsumer):
                 if resp.status == 200:
                     result = await resp.json()
 
+                    empty_text = 'Нет данных'
                     if not result["result"]:
-                        desc = 'Empty result'
+                        desc = empty_text
                     else:
-                        desc = result["result"].get("description")
-                        desc += "\n"
-                        desc += f"Comment count: {result['result'].get('comment_count')}, reaction count: {result['result'].get('reaction_count')}"
-                        desc += "\n"
-                        desc += "Powered by @humanscannerai"
+                        desc = result["result"].get("description", empty_text)
+                        # desc += "\n"
+                        # desc += f"Comment count: {result['result'].get('comment_count')}, reaction count: {result['result'].get('reaction_count')}"
 
                     return desc
                 elif resp.status == 400:
-                    desc = 'User not found'
+                    desc = 'Пользователь не найден'
                     return desc
                 else:
                     text = await resp.text()

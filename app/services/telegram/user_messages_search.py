@@ -8,6 +8,7 @@ from telethon.tl.types import PeerUser, User
 
 from app.configs.logger import logging
 from app.services.telegram.helpers import get_user_by_username
+from app.config import ENV
 
 
 class UserMessagesSearch:
@@ -86,7 +87,9 @@ class UserMessagesSearch:
                             peer=channel,
                             msg_id=post.id
                         ))
-                    except Exception:
+                    except Exception as e:
+                        if ENV == 'dev':
+                            logging.error(f"⚠️ Linked discussion group error {post.id}: {e}")
                         continue
 
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
@@ -103,7 +106,9 @@ class UserMessagesSearch:
                     #             if hasattr(reaction.peer_id, 'user_id') and reaction.peer_id.user_id == user.id:
                     #                 reactions.add(f"Reaction {reaction.reaction.emoticon} on post {msg.message}")
 
-                except ValueError:
+                except ValueError as e:
+                    if ENV == 'dev':
+                        logging.error(f"⚠️ Value error: {e}")
                     continue
                 except Exception as e:
                     logging.error(f"⚠️ Skipping post {post.id}: {e}")

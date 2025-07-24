@@ -43,10 +43,14 @@ async def generate_comments(body: GenerateMessagesBody, assigned_channels_messen
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class InviteUsersBody(BaseModel):
+    source_channels: Optional[list[str]] = None
+    target_channels: Optional[list[str]] = None
+
 @router.post("/invite-users")
-async def invite_users(user_inviter: UserInviter = Depends()):
+async def invite_users(body: InviteUsersBody, user_inviter: UserInviter = Depends()):
     try:
-        result = await user_inviter.invite_users_from_comments()
+        result = await user_inviter.invite_users_from_comments(source_channels=body.source_channels, target_channels=body.target_channels)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

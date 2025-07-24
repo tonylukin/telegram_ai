@@ -7,7 +7,7 @@ from telethon.tl.functions.channels import InviteToChannelRequest, GetFullChanne
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel, User
 
-from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO
+from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO, USER_INVITER_MAX_USERS
 from app.configs.logger import logging, logger
 from app.db.queries.tg_user_invited import get_invited_users
 from app.dependencies import get_db
@@ -18,7 +18,6 @@ from app.services.telegram.helpers import join_chats, get_chat_from_channel
 
 
 class UserInviter:
-    MAX_USERS = 10 #todo to config
     DELAY_RANGE = (10, 20)
 
     def __init__(self, clients_creator: ClientsCreator = Depends(), session: Session = Depends(get_db)):
@@ -30,7 +29,7 @@ class UserInviter:
     async def invite_users_from_comments(self,  source_channels: list[str] = None, target_channels: list[str] = None, count: int = None) -> list[dict[str, int]]:
         bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
         if count is None:
-            count = UserInviter.MAX_USERS
+            count = USER_INVITER_MAX_USERS
         if source_channels is None:
             source_channels = TELEGRAM_CHATS_TO_INVITE_FROM
         if target_channels is None:

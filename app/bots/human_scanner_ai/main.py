@@ -4,44 +4,107 @@ from telegram.ext import (
     MessageHandler, ConversationHandler, ContextTypes, filters
 )
 from telegram.constants import ParseMode
-import aiohttp
 import aio_pika
 import json
 
 from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST, RABBITMQ_QUEUE_HUMAN_SCANNER, API_TOKEN
 from app.configs.logger import logger
-from app.config import ENV, RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
+from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 
-USERNAME, CHATS, CONFIRM = range(3)
+MENU, USERNAME, CHATS, CONFIRM = range(4)
 LOGGER_PREFIX = 'HumanScannerBot'
 user_data = {}
 
+async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message:
+        message = update.message
+    elif update.callback_query:
+        await update.callback_query.answer()
+        message = update.callback_query.message
+    else:
+        # fallback
+        return None
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
+    chat_id = message.chat.id
     user_data[chat_id] = {}
+
+    keyboard = [
+        [InlineKeyboardButton("🔎 HumanScan", callback_data="human_scan")],
+        [InlineKeyboardButton("ℹ️ Info", callback_data="info")]
+    ]
     intro_text = (
         "👋 Привет! Этот бот дает описание человека на основе его активности в указанных каналах.\n"
         "У бота есть ограничения, поэтому будет использована активность за последнее время.\n"
-        "Введите username (@ivan), если есть, либо полное имя аккаунта (Иван Иванов):"
+        "Выберите действие:\n"
     )
-    await update.message.reply_text(intro_text)
-    return USERNAME
+    await message.reply_text(
+        intro_text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return MENU
 
+
+async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat_id
+
+    if query.data == "human_scan":
+        user_data[chat_id] = {}
+        await query.message.reply_text(
+            "Введите username (@ivan), если есть, либо полное имя аккаунта (Иван Иванов), либо текст сообщения в группе:"
+        )
+        return USERNAME
+
+    elif query.data == "info":
+        await query.message.reply_text(
+"""🔎 Хотите узнать больше о пользователе Telegram?
+Теперь это проще, чем когда-либо! Наш бот поможет найти информацию по человеку, если вы знаете хотя бы его имя и чаты, где он состоит.
+
+✨ Как это работает?
+Вы указываете:
+
+Никнейм (@username) или имя пользователя
+
+Один или несколько чатов, где он может быть
+
+📌 Поиск возможен по:
+
+Никнейму чата (@chatname)
+
+Ссылке на чат
+
+Пригласительной ссылке
+
+Просто названию чата (даже частичному — бот сам найдет совпадения)
+
+🎯 Чем точнее вы укажете имя, тем выше шанс найти нужного человека.
+Если в одном чате есть несколько пользователей с одинаковыми именами — возможны неточности, но бот покажет все совпадения.
+
+💬 Проверить можно хоть 1 чат, хоть 100 — ограничений нет!
+
+🚀 Убедитесь сами, насколько это удобно.
+Подключайтесь и находите нужных людей в Telegram — быстро, просто и эффективно."""
+        )
+        return await show_menu_again(query, context)
+
+
+async def show_menu_again(query, context):
+    keyboard = [
+        [InlineKeyboardButton("🔎 HumanScan", callback_data="human_scan")],
+        [InlineKeyboardButton("ℹ️ Info", callback_data="info")]
+    ]
+    await query.message.reply_text(
+        "Что делаем дальше?",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return MENU
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    return await menu(update, context)
 
 async def restart(update_or_query, context: ContextTypes.DEFAULT_TYPE):
-    """Вызывается при 'Начать сначала'."""
-    if isinstance(update_or_query, Update):  # /start
-        chat_id = update_or_query.effective_chat.id
-    else:  # callback_query
-        query = update_or_query
-        await query.answer()
-        chat_id = query.message.chat_id
-        await query.message.reply_text("🔄 Начинаем сначала. Кого ищем?")
-
-    user_data[chat_id] = {}
-    return USERNAME
-
+    return await menu(update_or_query, context)
 
 async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -89,93 +152,36 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
             "username": user_data[chat_id]['username'],
             "chats": user_data[chat_id]['chats'],
         }
-        return await send_request_with_retry(query, payload)
+        return await add_request_to_queue(query, payload)
 
     elif query.data == "restart":
         return await restart(query, context)
 
-    return ConversationHandler.END
+    return await menu(update, context)
 
 
-async def retry_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    chat_id = query.message.chat_id
-
-    payload = {
-        "username": user_data[chat_id]['username'],
-        "chats": user_data[chat_id]['chats'],
-    }
-
-    await query.edit_message_text("⏳ Повторяю запрос...")
-    return await send_request_with_retry(query, payload)
-
-
-async def send_request_with_retry(query, payload):
-    # if ENV == 'prod': #todo uncomment
-    if True:
-        try:
-            connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
-            async with connection:
-                channel = await connection.channel()
-                queue = await channel.declare_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, durable=True)
-                message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id}).encode("utf-8")
-
-                message = aio_pika.Message(
-                    body=message_body,
-                    content_type="application/json",
-                    delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-                )
-                await channel.default_exchange.publish(
-                    message,
-                    routing_key=queue.name,
-                )
-
-        except Exception as e:
-            logger.error(f"{LOGGER_PREFIX} - adding to queue error: {str(e)}")
-
-        return ConversationHandler.END
-
-    ####### BELOW FOR DEV PURPOSES #######
+async def add_request_to_queue(query, payload):
     try:
-        headers = {
-            "Authorization": f"Bearer {API_TOKEN}"
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(f"{APP_HOST}/user-info/collect", json=payload, headers=headers) as resp:
-                if resp.status == 200:
-                    result = await resp.json()
-                    desc = result["result"].get("description", "Нет описания.")
-                    keyboard = [
-                        [InlineKeyboardButton("🔄 Начать сначала", callback_data="restart")],
-                    ]
-                    await query.message.reply_text(
-                        f"📄 Результат:\n\n{desc or 'Активность в чатах не обнаружена'}",
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                else:
-                    await send_error_with_retry(query, f"⚠️ Ошибка сервера: {resp.status} {await resp.text()}")
+        connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
+        async with connection:
+            channel = await connection.channel()
+            queue = await channel.declare_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, durable=True)
+            message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id}).encode("utf-8")
+
+            message = aio_pika.Message(
+                body=message_body,
+                content_type="application/json",
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            )
+            await channel.default_exchange.publish(
+                message,
+                routing_key=queue.name,
+            )
+
     except Exception as e:
-        await send_error_with_retry(query, f"❌ Ошибка при запросе:\n{str(e)}")
+        logger.error(f"{LOGGER_PREFIX} - adding to queue error: {str(e)}")
 
-    return CONFIRM
-
-
-async def send_error_with_retry(query, error_text):
-    keyboard = [
-        [InlineKeyboardButton("🔄 Повторить", callback_data="retry")],
-        [InlineKeyboardButton("🚫 Начать сначала", callback_data="restart")],
-    ]
-    await query.message.reply_text(
-        error_text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode=ParseMode.MARKDOWN
-    )
-
-
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🚫 Операция отменена.")
-    return ConversationHandler.END
+    return MENU
 
 
 if __name__ == '__main__':
@@ -186,15 +192,17 @@ if __name__ == '__main__':
             CommandHandler("start", start)
         ],
         states={
+            MENU: [
+                CallbackQueryHandler(handle_menu, pattern="^(human_scan|info)$")
+            ],
             USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
             CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],
             CONFIRM: [
                 CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$"),
-                CallbackQueryHandler(retry_request, pattern="^retry$"),
             ],
         },
         fallbacks=[
-            CommandHandler("cancel", cancel)
+            CallbackQueryHandler(restart, pattern="^restart$"),
         ],
     )
 

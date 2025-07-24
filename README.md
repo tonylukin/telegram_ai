@@ -59,7 +59,7 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/generate-comments' \
 curl -X 'POST' 'http://127.0.0.1:8000/chat/invite-users' \
      -H 'Content-Type: application/json' \
      -H 'Authorization: Bearer 123' \
-     -d '{}'
+     -d '{"target_channels": []}'
 ```
 
 ### Get info by username

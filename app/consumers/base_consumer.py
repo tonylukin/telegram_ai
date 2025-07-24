@@ -21,7 +21,7 @@ class BaseConsumer(ABC):
                 connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
                 async with connection:
                     channel = await connection.channel()
-                    await channel.set_qos(prefetch_count=1)
+                    await channel.set_qos(prefetch_count=5)
 
                     queue = await channel.declare_queue(self.queue, durable=True)
                     logger.info("🎯 Waiting for messages…")
