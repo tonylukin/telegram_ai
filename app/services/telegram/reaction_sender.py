@@ -125,6 +125,7 @@ class ReactionSender:
         for chat in chats:
             try:
                 await client(JoinChannelRequest(chat))
+                await asyncio.sleep(5)
                 result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
             except Exception as e:
                 logging.error(f"Search chats error: {e}")
@@ -132,7 +133,6 @@ class ReactionSender:
         return result
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
-        client = bot_client.client
         await self.clients_creator.start_client(bot_client)
         logging.info(f"{bot_client.get_name()} started")
         if self.names is not None:
