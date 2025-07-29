@@ -72,7 +72,7 @@ class UserMessagesSearch:
 
             for post in posts:
                 try:
-                    if hasattr(post, 'from_id') and post.from_id and hasattr(post.from_id, 'user_id') and post.from_id.user_id == user.id:
+                    if hasattr(post, 'from_id') and post.from_id and hasattr(post.from_id, 'user_id') and post.from_id.user_id == user.id and post.message:
                         comments.add(post.message)
 
                     # 5. Check if user reacted to this post
@@ -97,7 +97,8 @@ class UserMessagesSearch:
 
                     # 4. Retrieve comments in discussion group from the user
                     async for msg in client.iter_messages(discussion_peer, from_user=user, limit=limit):
-                        comments.add(msg.message)
+                        if msg.message:
+                            comments.add(msg.message)
 
                     # 6. Check if user reacted to comments in discussion [TOO HEAVY]
                     # async for msg in client.iter_messages(discussion_peer, limit=limit):

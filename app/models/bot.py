@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from app.models.base import Base
 
 class Bot(Base):
+    ROLE_SUPER_ADMIN = 'super_admin'
     ROLE_POST = 'post'
     ROLE_INVITE = 'invite'
     ROLE_REACT = 'react'

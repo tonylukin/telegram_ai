@@ -7,6 +7,7 @@ from telethon.tl.types import Message, User, PeerChannel, Channel
 
 from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROMPT
 from app.configs.logger import logger
+from app.db.queries.tg_user_comment import get_user_comments
 from app.db.queries.tg_users import get_user_by_id
 from app.dependencies import get_db
 from app.models.tg_user import TgUser
@@ -133,15 +134,19 @@ class UserInfoCollector:
             logger.info(f"Could not find info for {username}: {e}")
 
         # messages = await UserMessagesSearch.get_user_messages_from_chat(client=client, chats=channel_usernames, username=username)
-        comments_reactions_by_channel = await UserMessagesSearch.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user)
+        comments_reactions_by_channel = await UserMessagesSearch.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user) #todo use DI
 
         await self.clients_creator.disconnect_client(bot_client)
 
-        messages = [] # todo add messages from DB here
+        messages_found = []
+        if user_found:
+            messages_found = get_user_comments(self.session, user_found.id)
+
+        messages = set([message_found.comment for message_found in messages_found])
         reactions = []
         if len(comments_reactions_by_channel):
             for entry in comments_reactions_by_channel.values():
-                messages.extend(entry['comments'])
+                messages.update(entry['comments'])
                 reactions.extend(entry['reactions'])
         desc = []
         if messages:
@@ -163,10 +168,10 @@ class UserInfoCollector:
             "description": '\n\n'.join(desc),
         }
         if desc:
-            self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, desc=full_desc)
+            self.__save_to_db(user=user, comments_reactions_by_channel=comments_reactions_by_channel, messages_found=messages_found, desc=full_desc)
         return full_desc
 
-    def __save_to_db(self, user: User, comments_reactions_by_channel: dict[str, dict[str, set[str]]], desc: dict[str, str]) -> None:
+    def __save_to_db(self, user: User, comments_reactions_by_channel: dict[str, dict[str, set[str]]], messages_found: list[TgUserComment], desc: dict[str, str]) -> None:
         user_found = get_user_by_id(self.session, user.id)
 
         try:
@@ -179,16 +184,9 @@ class UserInfoCollector:
             user_found.nickname = user.username or f"{user.first_name or ''} {user.last_name or ''}".strip()
             user_found.description = desc
             user_found.updated_at = datetime.now()
-            existing_comments = set()
+            existing_comments = {message_found.comment for message_found in messages_found}
             if user_found.id is None:
                 self.session.flush()
-            else:
-                existing_comments = {
-                    c.comment
-                    for c in self.session.query(TgUserComment.comment)
-                    .filter_by(user_id=user_found.id)
-                    .all()
-                }
 
             for channel, comments_reactions in comments_reactions_by_channel.items():
                 comments = comments_reactions.get('comments')

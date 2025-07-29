@@ -5,9 +5,10 @@ from urllib.parse import urlparse
 from telethon import TelegramClient
 from telethon.errors import UserAlreadyParticipantError, FloodWaitError, UserNotParticipantError, ChannelPrivateError
 from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest, GetParticipantRequest, \
-    GetParticipantsRequest
+    GetParticipantsRequest, EditAdminRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
-from telethon.tl.types import PeerChannel, ChannelParticipantsSearch
+from telethon.tl.types import PeerChannel, ChannelParticipantsSearch, ChatAdminRights, \
+    InputUser
 from telethon.types import User
 from telethon.tl.types import Channel, Chat
 
@@ -176,3 +177,30 @@ def extract_username_or_name(text: str) -> str:
 
     # Ни username, ни ссылка — возвращаем как есть
     return text
+
+async def promote_user(super_admin_client: TelegramClient, candidate: User, group_username: str):
+    admin_rights = ChatAdminRights(
+        change_info=True,
+        post_messages=True,
+        edit_messages=True,
+        delete_messages=True,
+        ban_users=True,
+        invite_users=True,
+        pin_messages=True,
+        add_admins=False,
+        manage_call=True,
+        anonymous=False,
+        manage_topics=True
+    )
+
+    input_user = InputUser(
+        user_id=candidate.id,
+        access_hash=candidate.access_hash
+    )
+    await super_admin_client(EditAdminRequest(
+        channel=group_username,
+        user_id=input_user,
+        admin_rights=admin_rights,
+        rank='Admin'
+    ))
+

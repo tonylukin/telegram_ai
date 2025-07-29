@@ -5,9 +5,17 @@ uvicorn app.main:app --reload
 ```
 
 ### Run channel messenger scripts
+#### Listen for channels to comment new posts
 ```bash
 PYTHONPATH=. python3 app/console/channels_listener.py
+```
+#### Find channels by query and react to it's posts
+```bash
 PYTHONPATH=. python3 app/console/reaction_sender_command.py
+```
+#### Invite all bots to my channels (as admins)
+```bash
+PYTHONPATH=. python3 app/console/invite_to_own_channels_command.py
 ```
 
 ### Run consumers
