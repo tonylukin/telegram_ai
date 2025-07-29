@@ -26,11 +26,12 @@ async def generate_reactions(body: GenerateReactionsBody, reaction_sender: React
 class GenerateMessagesBody(BaseModel):
     names: Optional[list[str]] = None
     message: Optional[str] = None
+    bot_roles: Optional[list[str]] = None
 
 @router.post("/generate-messages")
 async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMessenger = Depends()):
     try:
-        result = await chat_messenger.send_messages_to_chats_by_names(names=body.names, message=body.message)
+        result = await chat_messenger.send_messages_to_chats_by_names(names=body.names, message=body.message, bot_roles=body.bot_roles)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -38,7 +39,7 @@ async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMess
 @router.post("/generate-comments")
 async def generate_comments(body: GenerateMessagesBody, assigned_channels_messenger: AssignedChannelsMessenger = Depends()):
     try:
-        result = await assigned_channels_messenger.send_messages_to_assigned_channels(names=body.names, message=body.message)
+        result = await assigned_channels_messenger.send_messages_to_assigned_channels(names=body.names, message=body.message, bot_roles=body.bot_roles)
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

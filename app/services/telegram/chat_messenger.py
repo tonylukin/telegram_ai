@@ -49,12 +49,12 @@ class ChatMessenger:
             logging.error(f"❌ Failed to send message to {chat.title}: {e}")
             return False
 
-    async def send_messages_to_chats_by_names(self, message: str = None, names: list[str] = None) -> list[dict[str, int]]:
+    async def send_messages_to_chats_by_names(self, message: str = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
         self.chat_names = names
         if self.chat_names is None:
             self.chat_names = TELEGRAM_CHATS_TO_POST
         self.message = message
-        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment())
         if len(bot_clients) == 0:
             raise Exception('No bots found')
 
@@ -82,7 +82,7 @@ class ChatMessenger:
                     logger.info(f"{name}: Not a Channel")
                     continue
 
-                last_messages = await client.get_messages(chat.id, limit=5)
+                last_messages = [message for message in await client.get_messages(chat.id, limit=10) if message.message]
                 post_text_data = (chat.title, None)
                 random_message = None
                 if last_messages:
@@ -90,7 +90,7 @@ class ChatMessenger:
                     post_text_data = (random_message.message, random_message.id)
 
                 linked_chat_id = await get_chat_from_channel(client, chat)
-                if linked_chat_id is None:
+                if linked_chat_id is None or isinstance(linked_chat_id, Channel):
                     chats.append(chat)
                     post_texts[chat.id] = post_text_data
                     continue

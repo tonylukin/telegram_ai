@@ -30,8 +30,8 @@ class AssignedChannelsMessenger:
         self.chat_names = None
         self.message = None
 
-    async def send_messages_to_assigned_channels(self, message: str = None, names: list[str] = None) -> list[dict[str, int]]:
-        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
+    async def send_messages_to_assigned_channels(self, message: str = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment())
         self.message = message
         self.chat_names = names
 
