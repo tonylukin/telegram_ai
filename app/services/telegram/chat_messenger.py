@@ -119,9 +119,9 @@ class ChatMessenger:
                 if len(comments) > 0:
                     logging.info(f"{chat.title}: {bot_client.get_name()} has recent comments")
                     continue
-                if await has_antispam_bot(chat=chat, client=client):
-                    logging.info(f"{chat.title} has antispam bot")
-                    continue
+                # if await has_antispam_bot(chat=chat, client=client):
+                #     logging.info(f"{chat.title} has antispam bot")
+                #     continue
                 if not await is_user_in_group(client, chat):
                     logging.info(f"🚪 Not in chat. Joining {chat.title}")
                     await client(JoinChannelRequest(chat))
