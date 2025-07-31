@@ -7,15 +7,18 @@ from telegram.constants import ParseMode
 import aio_pika
 import json
 
-from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST, RABBITMQ_QUEUE_HUMAN_SCANNER, API_TOKEN
+from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, RABBITMQ_QUEUE_HUMAN_SCANNER
 from app.configs.logger import logger
 from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
+from translations import translations
 
 MENU, USERNAME, CHATS, CONFIRM = range(4)
 LOGGER_PREFIX = 'HumanScannerBot'
 user_data = {}
+user_lang = {} #todo to DB
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = __get_user_id_from_update(update)
     if update.message:
         message = update.message
     elif update.callback_query:
@@ -29,16 +32,12 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[chat_id] = {}
 
     keyboard = [
-        [InlineKeyboardButton("🔎 HumanScan", callback_data="human_scan")],
-        [InlineKeyboardButton("ℹ️ Info", callback_data="info")]
+        [InlineKeyboardButton(f"🔎 {t(user_id, 'human_scan')}", callback_data="human_scan")],
+        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
+        [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"), InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
     ]
-    intro_text = (
-        "👋 Привет! Этот бот дает описание человека на основе его активности в указанных каналах.\n"
-        "У бота есть ограничения, поэтому будет использована активность за последнее время.\n"
-        "Выберите действие:\n"
-    )
     await message.reply_text(
-        intro_text,
+        t(user_id, 'greeting'),
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return MENU
@@ -48,57 +47,44 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     chat_id = query.message.chat_id
+    user_id = __get_user_id_from_update(update)
 
     if query.data == "human_scan":
         user_data[chat_id] = {}
         await query.message.reply_text(
-            "Введите username (@ivan), если есть, либо полное имя аккаунта (Иван Иванов), либо текст сообщения в группе:"
+            t(user_id, 'set_username'),
         )
         return USERNAME
 
     elif query.data == "info":
         await query.message.reply_text(
-"""🔎 Хотите узнать больше о пользователе Telegram?
-Теперь это проще, чем когда-либо! Наш бот поможет найти информацию по человеку, если вы знаете хотя бы его имя и чаты, где он состоит.
-
-✨ Как это работает?
-Вы указываете:
-
-Никнейм (@username) или имя пользователя
-
-Один или несколько чатов, где он может быть
-
-📌 Поиск возможен по:
-
-Никнейму чата (@chatname)
-
-Ссылке на чат
-
-Пригласительной ссылке
-
-Просто названию чата (даже частичному — бот сам найдет совпадения)
-
-🎯 Чем точнее вы укажете имя, тем выше шанс найти нужного человека.
-Если в одном чате есть несколько пользователей с одинаковыми именами — возможны неточности, но бот покажет все совпадения.
-
-💬 Проверить можно хоть 1 чат, хоть 100 — ограничений нет!
-
-🚀 Убедитесь сами, насколько это удобно.
-Подключайтесь и находите нужных людей в Telegram — быстро, просто и эффективно."""
+            t(user_id, 'info'),
         )
         return await show_menu_again(query, context)
 
 
 async def show_menu_again(query, context):
+    user_id = query.from_user.id
     keyboard = [
-        [InlineKeyboardButton("🔎 HumanScan", callback_data="human_scan")],
-        [InlineKeyboardButton("ℹ️ Info", callback_data="info")]
+        [InlineKeyboardButton(f"🔎 {t(user_id, 'human_scan')}", callback_data="human_scan")],
+        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")]
     ]
+
     await query.message.reply_text(
-        "Что делаем дальше?",
+        t(user_id, 'next'),
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return MENU
+
+async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    lang_code = query.data.split("_")[1]
+    user_id = query.from_user.id
+    user_lang[user_id] = lang_code
+
+    return await menu(update, context)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return await menu(update, context)
@@ -108,27 +94,27 @@ async def restart(update_or_query, context: ContextTypes.DEFAULT_TYPE):
 
 async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    user_id = __get_user_id_from_update(update)
     user_data[chat_id]['username'] = update.message.text
 
     await update.message.reply_text(
-        "Теперь введите список чатов, где у юзера есть активность (через запятую: @chat1, https://t.me/chat2, t.me/+инвайт, либо название для поиска).\n"
-        "Поддерживаются каналы (и их чаты) и обычные чаты.\n"
-        "Чаты/каналы должны быть публичными (либо нужна ссылка-приглашение)."
+        t(user_id, 'enter_chats')
     )
     return CHATS
 
 
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    user_id = __get_user_id_from_update(update)
     chats = [c.strip() for c in update.message.text.split(',') if c.strip()]
     user_data[chat_id]['chats'] = chats
 
     username = user_data[chat_id]['username']
-    summary = f"🔎 Вы ввели:\nUsername: `{username}`\nЧаты:\n" + \
+    summary = f"🔎 {t(user_id, 'entered_chats').format(username=username)}" + \
               '\n'.join(f"- `{c}`" for c in chats)
     keyboard = [
-        [InlineKeyboardButton("✅ Подтвердить", callback_data="confirm")],
-        [InlineKeyboardButton("🔁 Изменить", callback_data="restart")],
+        [InlineKeyboardButton(f"✅ {t(user_id, 'confirm')}", callback_data="confirm")],
+        [InlineKeyboardButton(f"🔁 {t(user_id, 'start_over')}", callback_data="restart")],
     ]
     await update.message.reply_text(
         summary,
@@ -141,12 +127,12 @@ async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    chat_id = query.message.chat_id
+    user_id = __get_user_id_from_update(update)
 
     if query.data == "confirm":
+        chat_id = query.message.chat_id
         await query.edit_message_text(
-            "⏳ Запрос отправлен \n"
-            "Вы получите данные после выполнения задачи"
+            t(user_id, 'query_sent'),
         )
         payload = {
             "username": user_data[chat_id]['username'],
@@ -159,14 +145,18 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     return await menu(update, context)
 
+def __get_user_id_from_update(update: Update):
+    return update.effective_user.id if hasattr(update, 'effective_user') else update.message.from_user.id
 
 async def add_request_to_queue(query, payload):
+    user_id = query.from_user.id
+    lang_code = user_lang.get(user_id, "ru")
     try:
         connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
         async with connection:
             channel = await connection.channel()
             queue = await channel.declare_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, durable=True)
-            message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id}).encode("utf-8")
+            message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id, "lang_code": lang_code}).encode("utf-8")
 
             message = aio_pika.Message(
                 body=message_body,
@@ -183,6 +173,10 @@ async def add_request_to_queue(query, payload):
 
     return MENU
 
+def t(user_id, key):
+    lang = user_lang.get(user_id, "ru")
+    return translations.get(lang).get(key, key)
+
 
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN).build()
@@ -193,7 +187,8 @@ if __name__ == '__main__':
         ],
         states={
             MENU: [
-                CallbackQueryHandler(handle_menu, pattern="^(human_scan|info)$")
+                CallbackQueryHandler(handle_menu, pattern="^(human_scan|info)$"),
+                CallbackQueryHandler(set_language, pattern="^lang_")
             ],
             USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
             CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],

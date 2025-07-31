@@ -10,6 +10,7 @@ from app.config import RABBITMQ_QUEUE_HUMAN_SCANNER, \
     TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, APP_HOST, API_TOKEN, ENV
 from app.configs.logger import logger
 from app.consumers.base_consumer import BaseConsumer
+from app.bots.human_scanner_ai.translations import translations
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN}"
 
@@ -19,18 +20,18 @@ class HumanScannerConsumer(BaseConsumer):
         logger.info(f"📥 Received: {data}")
         chat_id = data['chat_id']
         payload = data['data']
-        desc = await self.__get_desc_from_api(payload)
+        lang_code = data['lang_code']
+        desc = await self.__get_desc_from_api(payload, lang_code)
 
-        await self.__send_message(chat_id, desc)
+        await self.__send_message(chat_id, desc, lang_code)
         return True
 
     @staticmethod
-    async def __send_message(chat_id: int, text: str):
+    async def __send_message(chat_id: int, text: str, lang_code: str):
         text = text or 'No data'
         keyboard = [
-            # [InlineKeyboardButton("🔄 Начать сначала", callback_data="human_scan")],
-            [InlineKeyboardButton("🔄 Начать сначала", callback_data="restart")],
-            [InlineKeyboardButton("📋 Поделиться", switch_inline_query=f"{text}\n\nPowered by @HumanScannerAIBot")]
+            [InlineKeyboardButton(f"🔄 {translations.get(lang_code).get('start_over')}", callback_data="restart")],
+            [InlineKeyboardButton(f"📋 {translations.get(lang_code).get('share')}", switch_inline_query=f"{text}\n\nPowered by @HumanScannerAIBot")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -48,16 +49,17 @@ class HumanScannerConsumer(BaseConsumer):
             )
 
     @staticmethod
-    async def __get_desc_from_api(payload: dict[str, str]) -> str:
+    async def __get_desc_from_api(payload: dict[str, str], lang_code: str) -> str:
         headers = {
-            "Authorization": f"Bearer {API_TOKEN}"
+            "Authorization": f"Bearer {API_TOKEN}",
+            "X-Language-Code": lang_code,
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{APP_HOST}/user-info/collect", json=payload, headers=headers) as resp:
                 if resp.status == 200:
                     result = await resp.json()
 
-                    empty_text = 'Нет данных'
+                    empty_text = translations.get('no_data')
                     if not result["result"]:
                         desc = empty_text
                     else:
@@ -67,7 +69,7 @@ class HumanScannerConsumer(BaseConsumer):
 
                     return desc
                 elif resp.status == 400:
-                    desc = 'Пользователь не найден'
+                    desc = translations.get('user_not_found')
                     return desc
                 else:
                     text = await resp.text()

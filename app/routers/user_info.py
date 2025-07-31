@@ -2,7 +2,7 @@ import traceback
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
-from fastapi.params import Depends
+from fastapi.params import Depends, Header
 from pydantic import BaseModel
 
 from app.configs.logger import logger
@@ -15,9 +15,9 @@ class UserInfoBody(BaseModel):
     chats: Optional[list[str]] = None
 
 @router.post("/collect")
-async def user_info(body: UserInfoBody, user_info_collector: UserInfoCollector = Depends()):
+async def user_info(body: UserInfoBody, x_language_code: str = Header(default="ru"), user_info_collector: UserInfoCollector = Depends()):
     try:
-        result = await user_info_collector.get_user_info(username=body.username, channel_usernames=body.chats)
+        result = await user_info_collector.get_user_info(username=body.username, channel_usernames=body.chats, lang=x_language_code)
         return {"status": "ok", "result": result}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

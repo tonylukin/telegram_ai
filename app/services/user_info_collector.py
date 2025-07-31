@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import Message, User, PeerChannel, Channel
 
-from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROMPT
+from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROMPT, AI_USER_INFO_MESSAGES_PROMPT_EN, \
+    AI_USER_INFO_REACTIONS_PROMPT_EN
 from app.configs.logger import logger
 from app.db.queries.tg_user_comment import get_user_comments
 from app.db.queries.tg_users import get_user_by_id
@@ -43,7 +44,7 @@ class UserInfoCollector:
             raise Exception('No bots found')
         return bot_clients[0]
 
-    async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None):
+    async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None, lang: str = 'ru'):
         bot_client = self.__init_client()
         client = bot_client.client
         await self.clients_creator.start_client(bot_client)
@@ -148,11 +149,22 @@ class UserInfoCollector:
             for entry in comments_reactions_by_channel.values():
                 messages.update(entry['comments'])
                 reactions.extend(entry['reactions'])
+
+        translations = {
+            'ru': {
+                'messages_prompt': AI_USER_INFO_MESSAGES_PROMPT,
+                'reactions_prompt': AI_USER_INFO_REACTIONS_PROMPT,
+            },
+            'en': {
+                'messages_prompt': AI_USER_INFO_MESSAGES_PROMPT_EN,
+                'reactions_prompt': AI_USER_INFO_REACTIONS_PROMPT_EN,
+            },
+        }
         desc = []
         if messages:
-            desc.append(self.ai_client.generate_text((prompt or AI_USER_INFO_MESSAGES_PROMPT).format(messages=messages)))
+            desc.append(self.ai_client.generate_text((prompt or translations.get(lang).get('messages_prompt')).format(messages=messages)))
         if reactions:
-            desc.append(self.ai_client.generate_text(AI_USER_INFO_REACTIONS_PROMPT.format(reactions=reactions)))
+            desc.append(self.ai_client.generate_text(translations.get(lang).get('reactions_prompt').format(reactions=reactions)))
 
         full_desc = {
             "id": user.id,
