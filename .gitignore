@@ -6,4 +6,5 @@
 __pycache__
 sessions
 logs
+data
 settings.local.json

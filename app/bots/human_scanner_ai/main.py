@@ -14,6 +14,7 @@ from translations import translations
 
 MENU, USERNAME, CHATS, CONFIRM = range(4)
 LOGGER_PREFIX = 'HumanScannerBot'
+DEFAULT_LANGUAGE = 'ru'
 user_data = {}
 user_lang = {} #todo to DB
 
@@ -150,7 +151,7 @@ def __get_user_id_from_update(update: Update):
 
 async def add_request_to_queue(query, payload):
     user_id = query.from_user.id
-    lang_code = user_lang.get(user_id, "ru")
+    lang_code = user_lang.get(user_id, DEFAULT_LANGUAGE)
     try:
         connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
         async with connection:
@@ -174,7 +175,7 @@ async def add_request_to_queue(query, payload):
     return MENU
 
 def t(user_id, key):
-    lang = user_lang.get(user_id, "ru")
+    lang = user_lang.get(user_id, DEFAULT_LANGUAGE)
     return translations.get(lang).get(key, key)
 
 

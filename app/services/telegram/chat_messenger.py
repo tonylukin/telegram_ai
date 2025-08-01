@@ -1,5 +1,7 @@
 import asyncio
 import random
+import os
+import csv
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
@@ -52,7 +54,8 @@ class ChatMessenger:
     async def send_messages_to_chats_by_names(self, message: str = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
         self.chat_names = names
         if self.chat_names is None:
-            self.chat_names = TELEGRAM_CHATS_TO_POST
+            names_from_csv = self.__get_names_from_csv()
+            self.chat_names = names_from_csv if names_from_csv else TELEGRAM_CHATS_TO_POST
         self.message = message
         bot_clients = self.clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment())
         if len(bot_clients) == 0:
@@ -156,3 +159,19 @@ class ChatMessenger:
         result = {bot_client.get_name(): result}
         logging.info(f"Messages sent: {result}")
         return result
+
+    @staticmethod
+    def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv') -> list[str]:
+        if not os.path.exists(csv_path):
+            logger.info(f"{csv_path} doesn't exist")
+            return []
+
+        channels = []
+        with open(csv_path, mode='r', newline='', encoding='utf-8') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if len(row) >= 2:
+                    channel_username = row[0].strip()
+                    channels.append(channel_username)
+
+        return channels
