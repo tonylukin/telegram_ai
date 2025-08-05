@@ -44,7 +44,7 @@ class ClientsCreator:
             self.session.flush()
 
         except Exception as e:
-            logger.error(f"Could not start client {e}")
+            logger.error(f"Could not start client [{bot_client.get_name()}] {e}")
             if bot_client.client.is_connected():
                 await bot_client.client.disconnect()
             raise RuntimeError("Could not start client")

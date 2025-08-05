@@ -141,7 +141,7 @@ class ChatMessenger:
                     bot_comment = BotComment(
                         bot_id=bot.id,
                         comment=message,
-                        channel=chat.title,
+                        channel=chat.title if len(chat.title) <= 64 else chat.title[:61] + '...',
                     )
                     self.session.add(bot_comment)
 
