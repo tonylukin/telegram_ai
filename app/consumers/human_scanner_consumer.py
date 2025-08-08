@@ -21,7 +21,7 @@ class HumanScannerConsumer(BaseConsumer):
         chat_id = data['chat_id']
         payload = data['data']
         lang_code = data['lang_code']
-        desc = await self.__get_desc_from_api(payload, lang_code)
+        desc = await self._get_desc_from_api(payload, lang_code)
 
         await self.__send_message(chat_id, desc, lang_code)
         return True
@@ -49,7 +49,7 @@ class HumanScannerConsumer(BaseConsumer):
             )
 
     @staticmethod
-    async def __get_desc_from_api(payload: dict[str, str], lang_code: str) -> str:
+    async def _get_desc_from_api(payload: dict[str, str], lang_code: str) -> str:
         headers = {
             "Authorization": f"Bearer {API_TOKEN}",
             "X-Language-Code": lang_code,
@@ -80,4 +80,5 @@ async def main():
     consumer = HumanScannerConsumer(RABBITMQ_QUEUE_HUMAN_SCANNER)
     await consumer.init()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())

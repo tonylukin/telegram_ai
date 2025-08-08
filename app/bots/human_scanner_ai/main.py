@@ -3,16 +3,18 @@ from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ConversationHandler, ContextTypes, filters
 )
-from telegram.constants import ParseMode
 import aio_pika
 import json
 
-from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, RABBITMQ_QUEUE_HUMAN_SCANNER
+from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, RABBITMQ_QUEUE_HUMAN_SCANNER, \
+    RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER
 from app.configs.logger import logger
 from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 from translations import translations
 
 MENU, USERNAME, CHATS, CONFIRM = range(4)
+IG_USERNAME = 'ig_username'
+IG_CONFIRM = 'ig_confirm'
 LOGGER_PREFIX = 'HumanScannerBot'
 DEFAULT_LANGUAGE = 'ru'
 user_data = {}
@@ -33,7 +35,8 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data[chat_id] = {}
 
     keyboard = [
-        [InlineKeyboardButton(f"🔎 {t(user_id, 'human_scan')}", callback_data="human_scan")],
+        [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
+        [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")],
         [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
         [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"), InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
     ]
@@ -57,6 +60,13 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return USERNAME
 
+    elif query.data == "ig_human_scan":
+        user_data[chat_id] = {}
+        await query.message.reply_text(
+            t(user_id, 'ig_set_username'),
+        )
+        return IG_USERNAME
+
     elif query.data == "info":
         await query.message.reply_text(
             t(user_id, 'info'),
@@ -67,8 +77,9 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_menu_again(query, context):
     user_id = query.from_user.id
     keyboard = [
-        [InlineKeyboardButton(f"🔎 {t(user_id, 'human_scan')}", callback_data="human_scan")],
-        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")]
+        [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
+        [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")],
+        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
     ]
 
     await query.message.reply_text(
@@ -103,6 +114,20 @@ async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return CHATS
 
+async def ig_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_data[chat_id]['username'] = update.message.text
+    user_id = __get_user_id_from_update(update)
+
+    keyboard = [
+        [InlineKeyboardButton(f"✅ {t(user_id, 'confirm')}", callback_data="ig_confirm")],
+        [InlineKeyboardButton(f"🔁 {t(user_id, 'start_over')}", callback_data="restart")],
+    ]
+    await update.message.reply_text(
+        user_data[chat_id]['username'],
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return IG_CONFIRM
 
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
@@ -139,7 +164,17 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
             "username": user_data[chat_id]['username'],
             "chats": user_data[chat_id]['chats'],
         }
-        return await add_request_to_queue(query, payload)
+        return await add_request_to_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, query, payload)
+
+    elif query.data == "ig_confirm":
+        chat_id = query.message.chat_id
+        await query.edit_message_text(
+            t(user_id, 'query_sent'),
+        )
+        payload = {
+            "username": user_data[chat_id]['username'],
+        }
+        return await add_request_to_queue(RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER, query, payload)
 
     elif query.data == "restart":
         return await restart(query, context)
@@ -149,14 +184,14 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 def __get_user_id_from_update(update: Update):
     return update.effective_user.id if hasattr(update, 'effective_user') else update.message.from_user.id
 
-async def add_request_to_queue(query, payload):
+async def add_request_to_queue(queue_name: str, query, payload):
     user_id = query.from_user.id
     lang_code = user_lang.get(user_id, DEFAULT_LANGUAGE)
     try:
         connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
         async with connection:
             channel = await connection.channel()
-            queue = await channel.declare_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, durable=True)
+            queue = await channel.declare_queue(queue_name, durable=True)
             message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id, "lang_code": lang_code}).encode("utf-8")
 
             message = aio_pika.Message(
@@ -188,19 +223,18 @@ if __name__ == '__main__':
         ],
         states={
             MENU: [
-                CallbackQueryHandler(handle_menu, pattern="^(human_scan|info)$"),
+                CallbackQueryHandler(handle_menu, pattern="^(ig_human_scan|human_scan|info)$"),
                 CallbackQueryHandler(set_language, pattern="^lang_")
             ],
             USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
             CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],
-            CONFIRM: [
-                CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$"),
-            ],
+            IG_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ig_get_username)],
+            IG_CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(ig_confirm|restart)$")],
+            CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$")],
         },
         fallbacks=[
             CallbackQueryHandler(restart, pattern="^restart$"),
         ],
     )
-
     app.add_handler(conv)
     app.run_polling()

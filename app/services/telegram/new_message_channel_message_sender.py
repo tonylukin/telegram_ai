@@ -2,20 +2,17 @@ import asyncio
 import random
 
 from fastapi.params import Depends
-from telethon import TelegramClient, events
+from telethon import events
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel
 
 from app.config import AI_COMMENT_TEXT, AI_COMMENT_TEXT_LINK
 from app.config import TELEGRAM_CHANNELS_TO_COMMENT
 from app.configs.logger import logging
+from app.dependencies import get_ai_client
 from app.services.ai.ai_client_base import AiClientBase
-from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
 
-
-def get_ai_client() -> AiClientBase:
-    return GeminiClient()
 
 class NewMessageChannelMessageSender:
     def __init__(self, ai_client: AiClientBase = Depends(get_ai_client), clients_creator: ClientsCreator = Depends()):

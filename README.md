@@ -17,6 +17,10 @@ PYTHONPATH=. python3 app/console/reaction_sender_command.py
 ```bash
 PYTHONPATH=. python3 app/console/invite_to_own_channels_command.py
 ```
+#### Export popular channels to CSV
+```bash
+PYTHONPATH=. python3 app/console/channels_export_command.py
+```
 
 ### Run consumers
 ```bash
@@ -70,7 +74,7 @@ curl -X 'POST' 'http://127.0.0.1:8000/chat/invite-users' \
      -d '{"target_channels": []}'
 ```
 
-### Get info by username
+### Get info by username (Telegram)
 ```bash
 curl -X 'POST' 'http://127.0.0.1:8000/user-info/collect' \
      -H 'Content-Type: application/json' \
@@ -78,8 +82,26 @@ curl -X 'POST' 'http://127.0.0.1:8000/user-info/collect' \
      -d '{"username": "", "chats": [""]}'
 ```
 
+### Get info by username (Instagram)
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/user-info/ig-collect' \
+     -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
+     -d '{"username": ""}'
+```
+
 ### Killing fastAPI debugger
 ```bash
 lsof -i tcp:8000
 kill -9 XXXXX
+```
+
+### Copy sessions
+```bash
+scp sessions/* tgai:/home/telegram_ai/sessions/
+```
+
+### TESTS
+```bash
+PYTHONPATH=. pytest -v
 ```

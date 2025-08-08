@@ -10,20 +10,16 @@ from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROM
 from app.configs.logger import logger
 from app.db.queries.tg_user_comment import get_user_comments
 from app.db.queries.tg_users import get_user_by_id
-from app.dependencies import get_db
+from app.dependencies import get_db, get_ai_client
 from app.models.tg_user import TgUser
 from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
-from app.services.ai.gemini_client import GeminiClient
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_bot_roles_for_human_scanner, BotClient
 from app.services.telegram.helpers import get_chat_from_channel, resolve_tg_link, extract_username_or_name
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
-
-def get_ai_client() -> AiClientBase:
-    return GeminiClient()
 
 class UserInfoCollector:
     def __init__(
@@ -184,7 +180,7 @@ class UserInfoCollector:
         return full_desc
 
     def __save_to_db(self, user: User, comments_reactions_by_channel: dict[str, dict[str, set[str]]], messages_found: list[TgUserComment], desc: dict[str, str]) -> None:
-        user_found = get_user_by_id(self.session, user.id)
+        user_found = get_user_by_id(self.session, user.id) # todo do not fetch if already done
 
         try:
             if user_found is None:

@@ -39,6 +39,7 @@ async def main():
         logger.error(e)
 
     await clients_creator.disconnect_client(bot_client)
+    session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

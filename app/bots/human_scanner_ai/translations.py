@@ -1,7 +1,8 @@
 
 translations = {
     "en": {
-        "human_scan": "Scan Human",
+        "human_scan": "Telegram Human Scan",
+        "ig_human_scan": "Instagram Human Scan",
         "about": "About",
         "greeting": (
             "👋 Hello! This bot gives a description of a person based on their activity in the specified channels.\n"
@@ -10,6 +11,7 @@ translations = {
         ),
         "choose_language": "Choose your language:",
         "set_username": "Enter username (@ivan), if any, or full account name (Ivan Ivanov), or text of the message in the group:",
+        "ig_set_username": "Enter username of Instagram public account:",
         "info":
 """
 🔎 Want to learn more about a Telegram user?
@@ -59,7 +61,8 @@ Connect and find the people you need in Telegram — quickly, easily and effecti
         "user_not_found": "User not found",
     },
     "ru": {
-        "human_scan": "Сканировать пользователя",
+        "human_scan": "Сканировать пользователя Telegram",
+        "ig_human_scan": "Сканировать пользователя Instagram",
         "about": "Правила использования",
         "greeting": (
             "👋 Привет! Этот бот дает описание человека на основе его активности в указанных каналах.\n"
@@ -68,6 +71,7 @@ Connect and find the people you need in Telegram — quickly, easily and effecti
         ),
         "choose_language": "Выберите язык:",
         "set_username": "Введите username (@ivan), если есть, либо полное имя аккаунта (Иван Иванов), либо текст сообщения в группе:",
+        "ig_set_username": "Введите username публичного аккаунта в Instagram:",
         "info":
 """🔎 Хотите узнать больше о пользователе Telegram?
 Теперь это проще, чем когда-либо! Наш бот поможет найти информацию по человеку, если вы знаете хотя бы его имя и чаты, где он состоит.

@@ -24,7 +24,7 @@ class BaseConsumer(ABC):
                     await channel.set_qos(prefetch_count=5)
 
                     queue = await channel.declare_queue(self.queue, durable=True)
-                    logger.info("🎯 Waiting for messages…")
+                    logger.info(f"🎯 [{self.queue}] Waiting for messages…")
 
                     await queue.consume(self.__handle_message, no_ack=False)
 

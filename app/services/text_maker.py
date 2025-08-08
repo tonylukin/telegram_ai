@@ -8,25 +8,15 @@ from sqlalchemy.orm import Session
 from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, \
     AI_MASS_NEWS_POST_TEXT, AI_NEWS_EMOTIONS, AI_MASS_NEWS_POST_IMAGE
 from app.configs.logger import logging
-from app.dependencies import get_db
+from app.dependencies import get_db, get_ai_client, get_ai_client_images
 from app.models.news_post import NewsPost
 from app.services.ai.ai_client_base import AiClientBase
-from app.services.ai.gemini_client import GeminiClient
-from app.services.ai.open_ai_client import OpenAiClient
 from app.services.news.news_api_client import NewsApiClient
 from app.services.news.news_maker_base import NewsMakerBase, NewsItem
 
 
 def get_news_maker() -> NewsMakerBase:
     return NewsApiClient()
-
-def get_ai_client() -> AiClientBase:
-    # return OpenAiClient()
-    return GeminiClient()
-
-def get_ai_client_images() -> AiClientBase:
-    # return HuggingFaceClient()
-    return OpenAiClient()
 
 def get_persons() -> List[str]:
     return PERSONS
