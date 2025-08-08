@@ -36,7 +36,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
-        [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")],
+        # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], todo uncomment
         [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
         [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"), InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
     ]
@@ -78,7 +78,7 @@ async def show_menu_again(query, context):
     user_id = query.from_user.id
     keyboard = [
         [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
-        [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")],
+        # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], #todo uncomment
         [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
     ]
 

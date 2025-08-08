@@ -79,14 +79,16 @@ class InstagramUserInfoCollector:
                 context = await browser.new_context(storage_state=SESSION_FILE)
                 page = await context.new_page()
                 await page.goto("https://www.instagram.com/")
+                if ENV != 'dev':
+                    await page.screenshot(path=os.path.join(SESSION_DIR, "debug_screenshot.png"))
                 try:
                     suggested_title = await page.query_selector('h4')
                     suggested_title = await suggested_title.text_content()
                     if suggested_title.strip().lower() != 'suggested for you':
-                        raise Exception
+                        raise Exception(f"Suggested title is {suggested_title}")
                     logger.info("✅ Logged in with saved session")
-                except:
-                    logger.info("⚠️ Saved session invalid, logging in again...")
+                except Exception as e:
+                    logger.info(f"⚠️ Saved session invalid, logging in again... {str(e)}")
                     context = await self.__login_and_save_session(browser)
             else:
                 context = await self.__login_and_save_session(browser)
