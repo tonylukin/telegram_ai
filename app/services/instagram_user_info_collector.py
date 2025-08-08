@@ -69,7 +69,7 @@ class InstagramUserInfoCollector:
     @staticmethod
     async def __get_instagram_profile_data(username: str) -> dict | None:
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False)
+            browser = await p.chromium.launch(headless=True) #todo check this on local machine. maybe it should depend on ENV != 'dev'
             context = await browser.new_context()
             page = await context.new_page()
 
