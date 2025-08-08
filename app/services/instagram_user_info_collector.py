@@ -1,3 +1,4 @@
+import os
 from datetime import datetime, timedelta
 
 from fastapi.params import Depends
@@ -5,7 +6,7 @@ from playwright.async_api import async_playwright
 from sqlalchemy.orm import Session
 
 from app.config import IG_AI_USER_INFO_PROFILE_PROMPT_RU, IG_AI_USER_INFO_PROFILE_PROMPT_EN, \
-    INSTAGRAM_USER_INFO_COLLECTOR_USERNAME, INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD
+    INSTAGRAM_USER_INFO_COLLECTOR_USERNAME, INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD, ENV, APP_ROOT
 from app.configs.logger import logger
 from app.db.queries.ig_user import get_ig_user_by_username
 from app.dependencies import get_db, get_ai_client
@@ -14,6 +15,8 @@ from app.models.ig_user import IgUser
 
 SCROLL_COUNT = 10
 POST_COUNT = 30    # number of posts to fetch
+SESSION_DIR = os.path.join(APP_ROOT, "sessions")
+SESSION_FILE = os.path.join(SESSION_DIR, "ig_session.json")
 
 class InstagramUserInfoCollector:
     def __init__(
@@ -66,26 +69,35 @@ class InstagramUserInfoCollector:
 
         return full_desc
 
-    @staticmethod
-    async def __get_instagram_profile_data(username: str) -> dict | None:
-        async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True) #todo check this on local machine. maybe it should depend on ENV != 'dev'
-            context = await browser.new_context()
-            page = await context.new_page()
+    async def __get_instagram_profile_data(self, username: str) -> dict | None:
+        os.makedirs(SESSION_DIR, exist_ok=True)
 
-            # Login
-            await page.goto("https://www.instagram.com/accounts/login/")
-            await page.wait_for_selector('input[name="username"]')
-            await page.fill('input[name="username"]', INSTAGRAM_USER_INFO_COLLECTOR_USERNAME)
-            await page.fill('input[name="password"]', INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD)
-            await page.click('button[type="submit"]')
-            await page.wait_for_timeout(7000)
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=(ENV != 'dev'))
+
+            if os.path.exists(SESSION_FILE):
+                context = await browser.new_context(storage_state=SESSION_FILE)
+                page = await context.new_page()
+                await page.goto("https://www.instagram.com/")
+                try:
+                    suggested_title = await page.query_selector('h4')
+                    suggested_title = await suggested_title.text_content()
+                    if suggested_title.strip().lower() != 'suggested for you':
+                        raise Exception
+                    logger.info("✅ Logged in with saved session")
+                except:
+                    logger.info("⚠️ Saved session invalid, logging in again...")
+                    context = await self.__login_and_save_session(browser)
+            else:
+                context = await self.__login_and_save_session(browser)
 
             # Go to target profile
+            page = await context.new_page()
             try:
                 await page.goto(f"https://www.instagram.com/{username}/")
                 await page.wait_for_selector("header")
             except Exception as e:
+                logger.error(e)
                 raise ValueError('User not found')
 
             # Bio
@@ -185,6 +197,24 @@ class InstagramUserInfoCollector:
                 "posts": posts
             }
             return result
+
+    async def __login_and_save_session(self, browser):
+        """Logs into Instagram and saves session state"""
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        await page.goto("https://www.instagram.com/accounts/login/")
+        await page.wait_for_selector('input[name="username"]')
+        await page.fill('input[name="username"]', INSTAGRAM_USER_INFO_COLLECTOR_USERNAME)
+        await page.fill('input[name="password"]', INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD)
+        await page.click('button[type="submit"]')
+
+        await page.wait_for_timeout(7000)  # wait for login to complete
+
+        await context.storage_state(path=SESSION_FILE)
+        logger.info("💾 New session saved")
+
+        return context
 
     def __save_to_db(self, user_found: IgUser | None, username: str, full_desc: dict[str, str]) -> None:
         try:

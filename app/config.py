@@ -6,6 +6,7 @@ from pathlib import Path
 load_dotenv()
 
 ENV = os.getenv("ENV", "dev")
+APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATABASE_URL = os.getenv("DATABASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")

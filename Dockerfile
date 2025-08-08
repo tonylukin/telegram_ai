@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Копируем зависимости и устанавливаем их
 COPY requirements.txt .
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && playwright install-deps
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt && playwright install && playwright install-deps
 
 # Копируем всё остальное
 COPY . .
