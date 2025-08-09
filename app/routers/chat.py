@@ -5,7 +5,6 @@ from fastapi.params import Depends
 from pydantic import BaseModel
 
 from app.services.telegram.assigned_channels_messenger import AssignedChannelsMessenger
-from app.services.telegram.channels_api_fetcher import ChannelsApiFetcher
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.reaction_sender import ReactionSender
 from app.services.telegram.user_inviter import UserInviter
