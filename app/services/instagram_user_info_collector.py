@@ -1,6 +1,7 @@
 import os
 from datetime import datetime, timedelta
 
+from diffusers.utils.import_utils import candidates
 from fastapi.params import Depends
 from playwright.async_api import async_playwright
 from sqlalchemy.orm import Session
@@ -12,6 +13,8 @@ from app.db.queries.ig_user import get_ig_user_by_username
 from app.dependencies import get_db, get_ai_client
 from app.services.ai.ai_client_base import AiClientBase
 from app.models.ig_user import IgUser
+from app.services.proxy.proxy_fetcher_decodo import ProxyFetcherDecodo
+from playwright.async_api._generated import Page
 
 SCROLL_COUNT = 10
 POST_COUNT = 30    # number of posts to fetch
@@ -22,10 +25,12 @@ class InstagramUserInfoCollector:
     def __init__(
             self,
             ai_client: AiClientBase = Depends(get_ai_client),
-            session: Session = Depends(get_db)
+            session: Session = Depends(get_db),
+            proxy_fetcher: ProxyFetcherDecodo = Depends(),
     ):
         self.ai_client = ai_client
         self.session = session
+        self.proxy_fetcher = proxy_fetcher
 
     async def get_user_info(self, username: str, prompt: str = None, lang: str = 'ru') -> dict:
         if username.startswith('@'):
@@ -63,6 +68,9 @@ class InstagramUserInfoCollector:
         )
         full_desc = {
             'description': overview,
+            'followers': len(profile_data.get('followers')),
+            'following': len(profile_data.get('following')),
+            'posts': len(profile_data.get('posts')),
             'bio': profile_data.get('bio'),
         }
         self.__save_to_db(user_found, username, full_desc)
@@ -71,16 +79,19 @@ class InstagramUserInfoCollector:
 
     async def __get_instagram_profile_data(self, username: str) -> dict | None:
         os.makedirs(SESSION_DIR, exist_ok=True)
-
+        proxy_config = self.proxy_fetcher.get_random_proxy_config()
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=(ENV != 'dev'))
+            browser = await p.chromium.launch(
+                headless=(ENV != 'dev'),
+                proxy=proxy_config,
+            )
 
             if os.path.exists(SESSION_FILE):
                 context = await browser.new_context(storage_state=SESSION_FILE)
                 page = await context.new_page()
                 await page.goto("https://www.instagram.com/")
-                if ENV != 'dev':
-                    await page.screenshot(path=os.path.join(SESSION_DIR, "debug_screenshot.png"))
+                # if ENV != 'dev':
+                #     await page.screenshot(path=os.path.join(SESSION_DIR, "debug_screenshot.png"))
                 try:
                     suggested_title = await page.query_selector('h4')
                     suggested_title = await suggested_title.text_content()
@@ -113,7 +124,7 @@ class InstagramUserInfoCollector:
             await page.wait_for_selector('div[role="dialog"]')
             followers_modal = await page.query_selector('div[role="dialog"]')
             await page.wait_for_timeout(1000)
-            scrollable_div = await followers_modal.query_selector('div[style*="--maxHeight"] > div:last-child')
+            scrollable_div = await followers_modal.query_selector('div.html-div[style*="400px"] > div:last-child')
 
             followers = set()
             for _ in range(SCROLL_COUNT):
@@ -128,7 +139,7 @@ class InstagramUserInfoCollector:
                         logger.error(e)
                         continue
 
-                await page.evaluate('(el) => el.scrollTop += 1000', scrollable_div)
+                await page.evaluate('(el) => el && (el.scrollTop += 1000)', scrollable_div)
                 await page.wait_for_timeout(1000)
 
             await page.keyboard.press('Escape')
@@ -138,7 +149,7 @@ class InstagramUserInfoCollector:
             await page.wait_for_selector('div[role="dialog"]')
             following_modal = await page.query_selector('div[role="dialog"]')
             await page.wait_for_timeout(1000)
-            scrollable_div = await following_modal.query_selector('div[style*="--maxHeight"] > div:last-child')
+            scrollable_div = await following_modal.query_selector('div.html-div[style*="400px"] > div:last-child')
 
             following = set()
             for _ in range(SCROLL_COUNT):
@@ -152,7 +163,7 @@ class InstagramUserInfoCollector:
                     except Exception as e:
                         logger.error(e)
                         continue
-                await page.evaluate('(div) => { div.scrollBy(0, 1000); }', scrollable_div) # scrollBy is the same
+                await page.evaluate('(div) => { div && div.scrollBy(0, 1000); }', scrollable_div) # scrollBy is the same
                 await page.wait_for_timeout(1000)
 
             await page.keyboard.press('Escape')
@@ -165,21 +176,30 @@ class InstagramUserInfoCollector:
                 f'nodes => nodes.filter(n => n.href.includes("{username}/p") || n.href.includes("{username}/reel")).map(n => n.href).slice(0, {POST_COUNT})'
             )
 
-
             for link in post_links:
                 await page.goto(link)
-                try:
-                    await page.wait_for_selector('article', timeout=10000)
-                except:
-                    continue
+
+                strategy_selector_tuples = [
+                    ('1', 'article'),
+                    ('2', 'span[style*="--x-lineHeight: 18px"]'),
+                ]
+                current_method = None
+                for method_number, selector in strategy_selector_tuples:
+                    try:
+                        await page.wait_for_selector(selector, timeout=10000)
+                        current_method = '_parse_post_' + method_number
+                        break
+                    except:
+                        continue
+
+                if current_method is None:
+                    raise RuntimeError(f"Strategy not found")
+
+                logger.info(f"Strategy {current_method} found")
+                caption = await getattr(self, current_method)(page)
 
                 try:
-                    caption = await page.locator('article h1').first.text_content()
-                except:
-                    caption = ""
-
-                try:
-                    place = await page.locator('header a[href^="/explore/"]').first.text_content()
+                    place = await page.locator('a[href^="/explore/"]').first.text_content()
                 except:
                     place = ""
 
@@ -199,6 +219,22 @@ class InstagramUserInfoCollector:
                 "posts": posts
             }
             return result
+
+    async def _parse_post_1(self, page: Page):
+        try:
+            caption = await page.locator('article h1').first.text_content()
+        except:
+            caption = ""
+
+        return caption
+
+    async def _parse_post_2(self, page: Page):
+        try:
+            caption = await page.locator('hr + div span[style*="--x-lineHeight: 18px"] > div > span').first.text_content()
+        except:
+            caption = ""
+
+        return caption
 
     async def __login_and_save_session(self, browser):
         """Logs into Instagram and saves session state"""

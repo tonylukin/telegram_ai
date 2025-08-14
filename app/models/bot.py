@@ -23,5 +23,6 @@ class Bot(Base):
     app_token = Column(String(32), nullable=True)
     roles = Column(ARRAY(String), nullable=True)
     status = Column(String, nullable=True)
+    phone_number = Column(String(15), nullable=True)
 
     comments = relationship("BotComment", back_populates="bot", lazy="selectin")

@@ -1,7 +1,5 @@
 from sqlalchemy import Column, BigInteger, String, JSON, DateTime, func
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from app.models.base import Base
 
 class IgUser(Base):
     __tablename__ = "ig_users"

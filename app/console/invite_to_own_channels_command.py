@@ -37,6 +37,7 @@ async def promote_users(super_admin_bot_client: BotClient, promoting_bot_client:
         promoting_bot = await promoting_bot_client.client.get_me()
 
         if bio:
+            logger.info(f"Setting bio to {bio}")
             await promoting_bot_client.client(functions.account.UpdateProfileRequest(about=bio))
 
         if super_admin_bot.id == promoting_bot.id:
@@ -69,7 +70,7 @@ async def main():
         session=session,
     ))
     clients_creator: ClientsCreator = container.resolve(ClientsCreator)
-    super_admin_bot_clients = clients_creator.create_clients_from_bots([Bot.ROLE_SUPER_ADMIN], 1)
+    super_admin_bot_clients = clients_creator.create_clients_from_bots(roles=[Bot.ROLE_SUPER_ADMIN], limit=1)
     if not super_admin_bot_clients:
         session.close()
         raise Exception("No client found")

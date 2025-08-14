@@ -96,7 +96,7 @@ class UserInviter:
                         except Exception:
                             continue
                         invited_user = get_invited_users(self.session, tg_user_id=user.id, channel=target_channel)
-                        if not isinstance(user, User) or user.is_self or user.bot or invited >= count or user.id in self.invitedUsers or invited_user is not None:
+                        if not isinstance(user, User) or user.is_self or user.deleted or user.scam or user.bot or invited >= count or user.id in self.invitedUsers or invited_user is not None:
                             continue
                         self.invitedUsers.add(user.id)
 

@@ -24,7 +24,11 @@ class NewMessageChannelMessageSender:
     async def send_comments_on_new_messages(self):
         bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment())
         await asyncio.gather(*(self.__start_client(client) for client in bot_clients))
-        await asyncio.gather(*(client.client.run_until_disconnected() for client in bot_clients))
+        try:
+            await asyncio.gather(*(client.client.run_until_disconnected() for client in bot_clients))
+        finally:
+            for client in bot_clients:
+                await self.clients_creator.disconnect_client(client)
 
     async def __start_client(self, bot_client: BotClient):
         client = bot_client.client
