@@ -1,7 +1,6 @@
 import os
 from datetime import datetime, timedelta
 
-from diffusers.utils.import_utils import candidates
 from fastapi.params import Depends
 from playwright.async_api import async_playwright
 from sqlalchemy.orm import Session
