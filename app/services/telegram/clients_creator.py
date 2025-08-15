@@ -1,5 +1,6 @@
 import sqlite3
 import asyncio
+from datetime import datetime
 from typing import List
 
 from fastapi.params import Depends
@@ -41,6 +42,7 @@ class ClientsCreator:
             if not bot_client.client.is_connected():
                 await bot_client.client.start()
             bot_client.bot.status = Bot.STATUS_BUSY
+            bot_client.bot.started_at = datetime.now()
             self.session.flush()
 
         except Exception as e:
@@ -56,6 +58,7 @@ class ClientsCreator:
                     await bot_client.client.disconnect()
                 if bot_client.bot.status is not None:
                     bot_client.bot.status = None
+                    bot_client.bot.started_at = None
                     self.session.flush()
 
                 break

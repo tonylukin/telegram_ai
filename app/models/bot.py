@@ -24,5 +24,6 @@ class Bot(Base):
     roles = Column(ARRAY(String), nullable=True)
     status = Column(String, nullable=True)
     phone_number = Column(String(15), nullable=True)
+    started_at = Column(DateTime)
 
     comments = relationship("BotComment", back_populates="bot", lazy="selectin")

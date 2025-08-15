@@ -23,7 +23,7 @@ PYTHONPATH=. python3 app/console/channels_export_command.py
 ```
 #### Export popular channels to CSV
 ```bash
- PYTHONPATH=. python3 app/console/client_messages_listener.py --bot=
+PYTHONPATH=. python3 app/console/client_messages_listener.py --bot=
 ```
 
 ### Run consumers
