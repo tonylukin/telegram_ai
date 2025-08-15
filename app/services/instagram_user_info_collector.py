@@ -87,19 +87,18 @@ class InstagramUserInfoCollector:
 
             if os.path.exists(SESSION_FILE):
                 context = await browser.new_context(storage_state=SESSION_FILE)
+                await context.set_extra_http_headers({
+                    "User-Agent": "Mozilla/5.0 ...",
+                    "Accept-Language": "en-US,en;q=0.9"
+                })
                 page = await context.new_page()
                 await page.goto("https://www.instagram.com/")
-                # if ENV != 'dev':
-                #     await page.screenshot(path=os.path.join(SESSION_DIR, "debug_screenshot.png"))
-                try:
-                    suggested_title = await page.query_selector('h4')
-                    suggested_title = await suggested_title.text_content()
-                    if suggested_title.strip().lower() != 'suggested for you':
-                        raise Exception(f"Suggested title is {suggested_title}")
-                    logger.info("✅ Logged in with saved session")
-                except Exception as e:
-                    logger.info(f"⚠️ Saved session invalid, logging in again... {str(e)}")
+
+                if await page.query_selector('input[name="username"]'):
+                    # Definitely not logged in
                     context = await self.__login_and_save_session(browser)
+                else:
+                    logger.info("✅ Logged in with saved session")
             else:
                 context = await self.__login_and_save_session(browser)
 
@@ -240,8 +239,8 @@ class InstagramUserInfoCollector:
         context = await browser.new_context()
         page = await context.new_page()
 
-        await page.goto("https://www.instagram.com/accounts/login/")
-        await page.wait_for_selector('input[name="username"]')
+        await page.goto("https://www.instagram.com/accounts/login/", wait_until="domcontentloaded", timeout=60000)
+        await page.wait_for_selector('input[name="username"]', timeout=15000)
         await page.fill('input[name="username"]', INSTAGRAM_USER_INFO_COLLECTOR_USERNAME)
         await page.fill('input[name="password"]', INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD)
         await page.click('button[type="submit"]')
