@@ -1,45 +1,14 @@
-FROM python:3.12-slim
+FROM python:3.11-bullseye
 
 # Устанавливаем рабочую директорию
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    wget \
-    unzip \
-    gnupg \
-    libglib2.0-0t64 \
-    libnspr4 \
-    libnss3 \
-    libdbus-1-3 \
-    libatk1.0-0t64 \
-    libatk-bridge2.0-0t64 \
-    libexpat1 \
-    libatspi2.0-0t64 \
-    libx11-6 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libxcb1 \
-    libxkbcommon0 \
-    libasound2t64 \
-    libjpeg62-turbo \
-    libvpx7 \
-    libwebp7 \
-    libicu72 \
-    fonts-unifont \
-    fonts-ubuntu \
- && rm -rf /var/lib/apt/lists/*
 
 # Копируем зависимости и устанавливаем их
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright + browser binaries
-RUN pip install playwright && playwright install
+RUN pip install playwright && playwright install --with-deps
 
 # Копируем всё остальное
 COPY . .
