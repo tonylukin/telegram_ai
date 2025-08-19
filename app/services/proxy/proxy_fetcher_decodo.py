@@ -8,7 +8,6 @@ from app.configs.logger import logger
 class ProxyFetcherDecodo:
 
     def get_random_proxy_config(self) -> dict | None:
-        return None # todo disable for now: looks like problem is not in the proxy
         if ENV != 'prod':
             return None
 

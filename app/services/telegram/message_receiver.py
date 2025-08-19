@@ -77,7 +77,11 @@ class MessageReceiver:
             chat_id = dialog.id
 
             # Get last message in this dialog
-            messages = await client.get_messages(chat_id, limit=10)
+            messages = []
+            try:
+                messages = await client.get_messages(chat_id, limit=10)
+            except Exception as e:
+                logger.error(f"Failed to get messages for {chat_id}: {e}")
             if not messages:
                 continue
             last_msg = messages[0]
@@ -107,7 +111,7 @@ class MessageReceiver:
                         users=[last_msg.sender]
                     ))
             except Exception as e:
-                logger.error(f"Cannot invite user {last_msg.sender.username} message to channel {promoting_channel} ({e})")
+                logger.error(f"Cannot invite user {last_msg.sender.username} to channel {promoting_channel} ({e})")
 
         await self.clients_creator.disconnect_client(bot_client)
         return {bot_client.get_name(): replies}

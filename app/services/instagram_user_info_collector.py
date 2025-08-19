@@ -49,6 +49,7 @@ class InstagramUserInfoCollector:
             logger.error(e)
             raise e
 
+        logger.info(f"Data from {username}: {profile_data}")
         translations = {
             'ru': {
                 'profile_prompt': IG_AI_USER_INFO_PROFILE_PROMPT_RU,
@@ -81,15 +82,16 @@ class InstagramUserInfoCollector:
         proxy_config = self.proxy_fetcher.get_random_proxy_config()
         async with async_playwright() as p:
             browser = await p.chromium.launch(
-                headless=(ENV != 'dev'),
+                # headless=(ENV != 'dev'),
+                headless=True,
                 proxy=proxy_config,
             )
 
             if os.path.exists(SESSION_FILE):
                 context = await browser.new_context(storage_state=SESSION_FILE)
                 await context.set_extra_http_headers({
-                    "User-Agent": "Mozilla/5.0 ...",
-                    "Accept-Language": "en-US,en;q=0.9"
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                    "Accept-Language": "en-US,en;q=0.9",
                 })
                 page = await context.new_page()
                 await page.goto("https://www.instagram.com/")

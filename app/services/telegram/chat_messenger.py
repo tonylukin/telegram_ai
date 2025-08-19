@@ -113,7 +113,7 @@ class ChatMessenger:
                     post_texts[linked_chat.id] = (discussion_msg.message, discussion_msg.id)
 
             except Exception as e:
-                logging.error(f"{name}: {e}")
+                logging.error(f"ChatMessenger [{name}]: {e}")
 
         result = {}
         for chat in chats:
@@ -147,7 +147,7 @@ class ChatMessenger:
 
                 await asyncio.sleep(random.choice(range(10, 15)))
             except Exception as e:
-                logging.error(f"Error [{chat.title}]: {e}")
+                logging.error(f"ChatMessenger Error [{chat.title}]: {e}")
 
         await self.clients_creator.disconnect_client(bot_client)
 
