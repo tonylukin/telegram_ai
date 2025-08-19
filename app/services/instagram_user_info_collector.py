@@ -96,7 +96,9 @@ class InstagramUserInfoCollector:
                 page = await context.new_page()
                 await page.goto("https://www.instagram.com/")
                 content = await page.content()
-                logger.info(f"IG collector: f{content}")
+                ig_content_file = os.path.join(APP_ROOT, "data", "instagram_debug.html")
+                with open(ig_content_file, "w", encoding="utf-8") as f:
+                    f.write(content)
 
                 if await page.query_selector('input[name="username"]'):
                     # Definitely not logged in
