@@ -13,7 +13,7 @@ class ProxyFetcherDecodo:
 
         port = random.choice(range(10001, 10008))
         return {
-            "server": f"gate.decodo.com:{port}",
+            "server": f"http://gate.decodo.com:{port}",
             "username": PROXY_DECODO_USERNAME,
             "password": PROXY_DECODO_PASSWORD
         }

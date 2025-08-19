@@ -88,13 +88,15 @@ class InstagramUserInfoCollector:
             )
 
             if os.path.exists(SESSION_FILE):
-                context = await browser.new_context(storage_state=SESSION_FILE)
+                context = await browser.new_context(storage_state=SESSION_FILE, viewport={"width": 1280, "height": 800})
                 await context.set_extra_http_headers({
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
                     "Accept-Language": "en-US,en;q=0.9",
                 })
                 page = await context.new_page()
                 await page.goto("https://www.instagram.com/")
+                content = await page.content()
+                logger.info(f"IG collector: f{content}")
 
                 if await page.query_selector('input[name="username"]'):
                     # Definitely not logged in
@@ -115,7 +117,7 @@ class InstagramUserInfoCollector:
 
             # Bio
             try:
-                bio = await page.locator("header section:eq(3) span > div > span").text_content()
+                bio = await page.locator("header section:eq(3) span > div > span").text_content() # todo bio does not work
             except:
                 bio = ""
 
