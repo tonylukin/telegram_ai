@@ -271,7 +271,7 @@ class InstagramUserInfoCollector:
             logger.error(e)
 
     async def __go_to(self, page: Page, url: str) -> None:
-        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        await page.goto(url, timeout=60000)
         if ENV == 'prod':
             content = await page.content()
             ig_content_file = os.path.join(APP_ROOT, "data", f"instagram_debug_{url.replace(':', '').replace('/', '')}.html")

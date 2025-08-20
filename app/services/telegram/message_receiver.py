@@ -92,9 +92,9 @@ class MessageReceiver:
 
             dialog_messages = ['- ' + message.message for message in messages]
             logger.info(f"Dialog: {dialog_messages}")
-            reply_text = self.ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
-            sender_name = get_name_from_user(last_msg.sender)
             try:
+                reply_text = self.ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
+                sender_name = get_name_from_user(last_msg.sender)
                 await client.send_message(chat_id, reply_text, reply_to=last_msg.id)
                 logger.info(f"Replied in chat {chat_id}")
                 replies.append([sender_name, last_msg.text, reply_text])

@@ -158,9 +158,15 @@ class UserInfoCollector:
         }
         desc = []
         if messages:
-            desc.append(self.ai_client.generate_text((prompt or translations.get(lang).get('messages_prompt')).format(messages=messages)))
+            try:
+                desc.append(self.ai_client.generate_text((prompt or translations.get(lang).get('messages_prompt')).format(messages=messages)))
+            except Exception as e:
+                logger.error(f"user_info_collector messages generate text: {e}")
         if reactions:
-            desc.append(self.ai_client.generate_text(translations.get(lang).get('reactions_prompt').format(reactions=reactions)))
+            try:
+                desc.append(self.ai_client.generate_text(translations.get(lang).get('reactions_prompt').format(reactions=reactions)))
+            except Exception as e:
+                logger.error(f"user_info_collector reactions generate text: {e}")
 
         full_desc = {
             "id": user.id,
