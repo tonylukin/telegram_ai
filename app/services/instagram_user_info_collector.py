@@ -83,8 +83,8 @@ class InstagramUserInfoCollector:
         proxy_config = self.proxy_fetcher.get_random_proxy_config()
         async with Stealth().use_async(async_playwright()) as p:
             browser = await p.chromium.launch(
-                # headless=(ENV != 'dev'),
-                headless=True,
+                headless=(ENV != 'dev'),
+                # headless=True,
                 proxy=proxy_config,
             )
 
@@ -95,11 +95,7 @@ class InstagramUserInfoCollector:
                     "Accept-Language": "en-US,en;q=0.9",
                 })
                 page = await context.new_page()
-                await page.goto("https://www.instagram.com/")
-                content = await page.content()
-                ig_content_file = os.path.join(APP_ROOT, "data", "instagram_debug.html")
-                with open(ig_content_file, "w", encoding="utf-8") as f:
-                    f.write(content)
+                await self.__go_to(page, "https://www.instagram.com/")
 
                 if await page.query_selector('input[name="username"]'):
                     # Definitely not logged in
@@ -112,7 +108,7 @@ class InstagramUserInfoCollector:
             # Go to target profile
             page = await context.new_page()
             try:
-                await page.goto(f"https://www.instagram.com/{username}/")
+                await self.__go_to(page, f"https://www.instagram.com/{username}/")
                 await page.wait_for_selector("header")
             except Exception as e:
                 logger.error(e)
@@ -120,8 +116,10 @@ class InstagramUserInfoCollector:
 
             # Bio
             try:
-                bio = await page.locator("header section:eq(3) span > div > span").text_content() # todo bio does not work
-            except:
+                # bio = await page.locator("header section:eq(3) span > div > span").text_content()
+                bio = await page.locator('header section > div > span > div > span').text_content()
+            except Exception as e:
+                logger.error(f"IG parser error: {e}")
                 bio = ""
 
             # Followers
@@ -246,7 +244,7 @@ class InstagramUserInfoCollector:
         context = await browser.new_context()
         page = await context.new_page()
 
-        await page.goto("https://www.instagram.com/accounts/login/", wait_until="domcontentloaded", timeout=60000)
+        await self.__go_to(page, "https://www.instagram.com/accounts/login/")
         await page.wait_for_selector('input[name="username"]', timeout=15000)
         await page.fill('input[name="username"]', INSTAGRAM_USER_INFO_COLLECTOR_USERNAME)
         await page.fill('input[name="password"]', INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD)
@@ -271,3 +269,11 @@ class InstagramUserInfoCollector:
         except Exception as e:
             self.session.rollback()
             logger.error(e)
+
+    async def __go_to(self, page: Page, url: str) -> None:
+        await page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        if ENV == 'prod':
+            content = await page.content()
+            ig_content_file = os.path.join(APP_ROOT, "data", f"instagram_debug_{url.replace(':', '').replace('/', '')}.html")
+            with open(ig_content_file, "w", encoding="utf-8") as f:
+                f.write(content)
