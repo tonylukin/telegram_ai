@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from fastapi.params import Depends
 from playwright.async_api import async_playwright
 from sqlalchemy.orm import Session
+from playwright_stealth import Stealth
 
 from app.config import IG_AI_USER_INFO_PROFILE_PROMPT_RU, IG_AI_USER_INFO_PROFILE_PROMPT_EN, \
     INSTAGRAM_USER_INFO_COLLECTOR_USERNAME, INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD, ENV, APP_ROOT
@@ -80,7 +81,7 @@ class InstagramUserInfoCollector:
     async def __get_instagram_profile_data(self, username: str) -> dict | None:
         os.makedirs(SESSION_DIR, exist_ok=True)
         proxy_config = self.proxy_fetcher.get_random_proxy_config()
-        async with async_playwright() as p:
+        async with Stealth().use_async(async_playwright()) as p:
             browser = await p.chromium.launch(
                 # headless=(ENV != 'dev'),
                 headless=True,

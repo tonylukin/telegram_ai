@@ -22,7 +22,7 @@ async def main():
         raise Exception("No bots found")
 
     bot_client = bot_clients[0]
-    await clients_creator.start_client(bot_client)
+    await clients_creator.start_client(bot_client, task_name='channels_export')
 
     try:
         channels = await channels_api_fetcher.get_postable_channels(client=bot_client.client)

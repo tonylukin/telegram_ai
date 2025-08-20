@@ -71,7 +71,7 @@ class ChatMessenger:
 
     async def __start_client(self, bot_client: BotClient, chat_names: list[str]) -> dict[str, dict[str, int]]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client)
+        await self.clients_creator.start_client(bot_client, task_name='send_messages_to_chats_by_names')
         logging.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot

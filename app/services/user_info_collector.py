@@ -43,7 +43,7 @@ class UserInfoCollector:
     async def get_user_info(self, username: str, channel_usernames: list[str], prompt: str = None, lang: str = 'ru'):
         bot_client = self.__init_client()
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client)
+        await self.clients_creator.start_client(bot_client, task_name='user_info_collector')
 
         # first check linked chats and add them to initial array removing broadcast
         for chat_name in channel_usernames[:]:

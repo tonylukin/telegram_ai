@@ -8,7 +8,7 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright + browser binaries
-RUN pip install playwright && playwright install --with-deps
+RUN pip install playwright && playwright install --with-deps && pip install playwright-stealth
 
 # Копируем всё остальное
 COPY . .

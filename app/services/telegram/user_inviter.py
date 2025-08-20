@@ -41,7 +41,7 @@ class UserInviter:
 
     async def __start_client(self, bot_client: BotClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client)
+        await self.clients_creator.start_client(bot_client, task_name='invite_users_from_comments')
         logging.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot

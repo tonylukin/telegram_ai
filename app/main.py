@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from app.config import API_TOKEN
+from app.config import API_TOKEN, ENV
 from app.configs.logger import logger
 from app.routers import all_routers
 
@@ -12,7 +12,7 @@ for r in all_routers:
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     # Skip auth for open endpoints if needed
-    if request.url.path in ["/open", "/docs", "/openapi.json"]:
+    if request.url.path in ["/open", "/docs", "/openapi.json"] or ENV == 'dev':
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization")

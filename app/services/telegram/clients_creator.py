@@ -37,12 +37,13 @@ class ClientsCreator:
 
         return clients
 
-    async def start_client(self, bot_client: BotClient):
+    async def start_client(self, bot_client: BotClient, task_name: str = None) -> None:
         try:
             if not bot_client.client.is_connected():
                 await bot_client.client.start()
             bot_client.bot.status = Bot.STATUS_BUSY
             bot_client.bot.started_at = datetime.now()
+            bot_client.bot.task_name = task_name
             self.session.flush()
 
         except Exception as e:
@@ -59,6 +60,7 @@ class ClientsCreator:
                 if bot_client.bot.status is not None:
                     bot_client.bot.status = None
                     bot_client.bot.started_at = None
+                    bot_client.bot.task_name = None
                     self.session.flush()
 
                 break

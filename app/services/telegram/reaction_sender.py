@@ -133,7 +133,7 @@ class ReactionSender:
         return result
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
-        await self.clients_creator.start_client(bot_client)
+        await self.clients_creator.start_client(bot_client, task_name='send_reactions')
         logging.info(f"{bot_client.get_name()} started")
         if self.names is not None:
             result = await self.__send_to_specific_chats(bot_client)

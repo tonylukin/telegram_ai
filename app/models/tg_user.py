@@ -1,7 +1,10 @@
 from sqlalchemy import (
-    Column, BigInteger, Integer, String, JSON, Text, DateTime, ForeignKey, Index, UniqueConstraint, func
+    Column, BigInteger, String, JSON, DateTime, Index, UniqueConstraint, func
 )
+from sqlalchemy.orm import relationship
+
 from app.models.base import Base
+
 
 class TgUser(Base):
     __tablename__ = "tg_users"
@@ -12,6 +15,8 @@ class TgUser(Base):
     description = Column(JSON, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, nullable=True, onupdate=func.now(), default=func.now())
+
+    comments = relationship("TgUserComment", back_populates="tg_user", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("ix_tg_users_nickname", "nickname"),

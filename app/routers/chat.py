@@ -3,7 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
+from app.db.queries import bot_comment, tg_user_invited
+from app.dependencies import get_db
+from app.schemas.BotCommentSchema import BotCommentSchema
+from app.schemas.TgUserInvitedSchema import TgUserInvitedSchema
 from app.services.telegram.assigned_channels_messenger import AssignedChannelsMessenger
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.reaction_sender import ReactionSender
@@ -55,3 +60,13 @@ async def invite_users(body: InviteUsersBody, user_inviter: UserInviter = Depend
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/bot-comments", response_model=list[BotCommentSchema])
+def get_users(limit: int = 50, offset: int = 0, session: Session = Depends(get_db)):
+    bot_comments = bot_comment.find_all(session, limit=limit, offset=offset)
+    return bot_comments
+
+@router.get("/tg-users-invited", response_model=list[TgUserInvitedSchema])
+def get_users(limit: int = 50, offset: int = 0, session: Session = Depends(get_db)):
+    tg_users_invited = tg_user_invited.find_all(session, limit=limit, offset=offset)
+    return tg_users_invited

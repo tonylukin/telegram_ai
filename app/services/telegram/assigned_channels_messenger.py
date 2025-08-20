@@ -41,7 +41,7 @@ class AssignedChannelsMessenger:
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client)
+        await self.clients_creator.start_client(bot_client, task_name='send_messages_to_assigned_channels')
         logging.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot

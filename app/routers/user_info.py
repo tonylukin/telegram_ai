@@ -3,8 +3,12 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.params import Depends, Header
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.configs.logger import logger
+from app.db.queries.tg_users import find_all
+from app.dependencies import get_db
+from app.schemas.TgUserSchema import TgUserSchema
 from app.services.instagram_user_info_collector import InstagramUserInfoCollector
 from app.services.user_info_collector import UserInfoCollector
 
@@ -35,3 +39,8 @@ async def ig_user_info(body: UserInfoBody, x_language_code: str = Header(default
     except Exception as e:
         logger.error(f"Instagram user info collector error: {e}")
         raise HTTPException(status_code=500, detail='Please try again')
+
+@router.get("/tg-users", response_model=list[TgUserSchema])
+def get_users(limit: int = 50, offset: int = 0, session: Session = Depends(get_db)):
+    users = find_all(session, limit=limit, offset=offset)
+    return users

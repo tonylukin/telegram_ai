@@ -58,7 +58,7 @@ class MessageReceiver:
             logger.info(f"[{sender_name} to {bot_clients[0].get_name()}] {event.text}")
 
         logger.info("Listening for messages...")
-        await self.clients_creator.start_client(bot_client=bot_clients[0])
+        await self.clients_creator.start_client(bot_client=bot_clients[0], task_name='get_new_messages_for_bot')
         try:
             await client.run_until_disconnected()
         finally:
@@ -66,7 +66,7 @@ class MessageReceiver:
 
     async def __check_and_reply(self, bot_client: BotClient, promoting_channel: str, promoting_channel_to_invite: str | None) -> dict[str, list]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client)
+        await self.clients_creator.start_client(bot_client, task_name='messages_check_and_reply')
         logger.info(f"{bot_client.get_name()} started")
 
         dialogs = await client.get_dialogs()  # fetch all chats
