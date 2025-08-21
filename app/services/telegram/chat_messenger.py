@@ -35,7 +35,7 @@ class ChatMessenger:
         self.ai_client = config.ai_client
         self.session = session
         self.chat_names = None
-        self.message = None
+        self.messages = None
 
     @staticmethod
     async def send_message(client: TelegramClient, chat: Channel | PeerChannel, message: str, reply_to_post_id: int|None) -> bool:
@@ -51,13 +51,13 @@ class ChatMessenger:
             logging.error(f"❌ Failed to send message to {chat.title}: {e}")
             return False
 
-    async def send_messages_to_chats_by_names(self, message: str = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
+    async def send_messages_to_chats_by_names(self, messages: list[str] = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
         self.chat_names = names
         if self.chat_names is None:
             names_from_csv = self.__get_names_from_csv()
             self.chat_names = names_from_csv if names_from_csv else TELEGRAM_CHATS_TO_POST
-        self.message = message
-        bot_clients = self.clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment())
+        self.messages = messages
+        bot_clients = self.clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=4)
         if len(bot_clients) == 0:
             raise Exception('No bots found')
 
@@ -131,10 +131,10 @@ class ChatMessenger:
                     await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
                 (post_text, post_id) = post_texts[chat.id]
-                if self.message is None: # todo add emotions
+                if self.messages is None: # todo add emotions
                     prompt = AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE.format(post=post_text)
                 else:
-                    prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=post_text)
+                    prompt = AI_POST_TEXT_TO_CHANNELS.format(text=random.choice(self.messages), post=post_text)
                 message = self.ai_client.generate_text(prompt)
                 if await self.send_message(client=client, chat=chat, message=message, reply_to_post_id=post_id):
                     result[chat.title] = 1
@@ -161,17 +161,21 @@ class ChatMessenger:
         return result
 
     @staticmethod
-    def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv') -> list[str]:
+    def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv', limit: int = 20) -> list[str]:
         if not os.path.exists(csv_path):
             logger.info(f"{csv_path} doesn't exist")
             return []
 
         channels = []
+        counter = 0
         with open(csv_path, mode='r', newline='', encoding='utf-8') as file:
             reader = csv.reader(file)
             for row in reader:
+                if counter == limit:
+                    break
                 if len(row) >= 2:
                     channel_username = row[0].strip()
                     channels.append(channel_username)
+                    counter += 1
 
         return channels

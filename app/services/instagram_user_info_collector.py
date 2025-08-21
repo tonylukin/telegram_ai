@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from playwright_stealth import Stealth
 
 from app.config import IG_AI_USER_INFO_PROFILE_PROMPT_RU, IG_AI_USER_INFO_PROFILE_PROMPT_EN, \
-    INSTAGRAM_USER_INFO_COLLECTOR_USERNAME, INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD, ENV, APP_ROOT
+    INSTAGRAM_USER_INFO_COLLECTOR_USERNAME, INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD, APP_ROOT, is_prod
 from app.configs.logger import logger
 from app.db.queries.ig_user import get_ig_user_by_username
 from app.dependencies import get_db, get_ai_client
@@ -18,6 +18,8 @@ from playwright.async_api._generated import Page
 
 SCROLL_COUNT = 10
 POST_COUNT = 30    # number of posts to fetch
+TIMEOUT_MULTIPLIER = 5 if is_prod() else 1
+PAGE_TIMEOUT = 18 * TIMEOUT_MULTIPLIER # seconds
 SESSION_DIR = os.path.join(APP_ROOT, "sessions")
 SESSION_FILE = os.path.join(SESSION_DIR, "ig_session.json")
 
@@ -83,7 +85,7 @@ class InstagramUserInfoCollector:
         proxy_config = self.proxy_fetcher.get_random_proxy_config()
         async with Stealth().use_async(async_playwright()) as p:
             browser = await p.chromium.launch(
-                headless=(ENV != 'dev'),
+                headless=(is_prod()),
                 # headless=True,
                 proxy=proxy_config,
             )
@@ -126,7 +128,7 @@ class InstagramUserInfoCollector:
             await page.click('a[href$="/followers/"]')
             await page.wait_for_selector('div[role="dialog"]')
             followers_modal = await page.query_selector('div[role="dialog"]')
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(1000 * TIMEOUT_MULTIPLIER)
             scrollable_div = await followers_modal.query_selector('div.html-div[style*="400px"] > div:last-child')
 
             followers = set()
@@ -143,7 +145,7 @@ class InstagramUserInfoCollector:
                         continue
 
                 await page.evaluate('(el) => el && (el.scrollTop += 1000)', scrollable_div)
-                await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(1000 * TIMEOUT_MULTIPLIER)
 
             await page.keyboard.press('Escape')
 
@@ -151,7 +153,7 @@ class InstagramUserInfoCollector:
             await page.click('a[href$="/following/"]')
             await page.wait_for_selector('div[role="dialog"]')
             following_modal = await page.query_selector('div[role="dialog"]')
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(1000 * TIMEOUT_MULTIPLIER)
             scrollable_div = await following_modal.query_selector('div.html-div[style*="400px"] > div:last-child')
 
             following = set()
@@ -167,7 +169,7 @@ class InstagramUserInfoCollector:
                         logger.error(e)
                         continue
                 await page.evaluate('(div) => { div && div.scrollBy(0, 1000); }', scrollable_div) # scrollBy is the same
-                await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(1000 * TIMEOUT_MULTIPLIER)
 
             await page.keyboard.press('Escape')
 
@@ -180,7 +182,7 @@ class InstagramUserInfoCollector:
             )
 
             for link in post_links:
-                await page.goto(link)
+                await page.goto(link, timeout=PAGE_TIMEOUT * 1000)
 
                 strategy_selector_tuples = [
                     ('1', 'article'),
@@ -189,7 +191,7 @@ class InstagramUserInfoCollector:
                 current_method = None
                 for method_number, selector in strategy_selector_tuples:
                     try:
-                        await page.wait_for_selector(selector, timeout=10000)
+                        await page.wait_for_selector(selector, timeout=PAGE_TIMEOUT * 1000)
                         current_method = '_parse_post_' + method_number
                         break
                     except:
@@ -245,12 +247,12 @@ class InstagramUserInfoCollector:
         page = await context.new_page()
 
         await self.__go_to(page, "https://www.instagram.com/accounts/login/")
-        await page.wait_for_selector('input[name="username"]', timeout=15000)
+        await page.wait_for_selector('input[name="username"]', timeout=PAGE_TIMEOUT * 1000)
         await page.fill('input[name="username"]', INSTAGRAM_USER_INFO_COLLECTOR_USERNAME)
         await page.fill('input[name="password"]', INSTAGRAM_USER_INFO_COLLECTOR_PASSWORD)
         await page.click('button[type="submit"]')
 
-        await page.wait_for_timeout(7000)  # wait for login to complete
+        await page.wait_for_timeout(PAGE_TIMEOUT * 1000)  # wait for login to complete
 
         await context.storage_state(path=SESSION_FILE)
         logger.info("💾 New session saved")
@@ -271,8 +273,8 @@ class InstagramUserInfoCollector:
             logger.error(e)
 
     async def __go_to(self, page: Page, url: str) -> None:
-        await page.goto(url, timeout=60000)
-        if ENV == 'prod':
+        await page.goto(url, timeout=PAGE_TIMEOUT * 1000)
+        if is_prod():
             content = await page.content()
             ig_content_file = os.path.join(APP_ROOT, "data", f"instagram_debug_{url.replace(':', '').replace('/', '')}.html")
             with open(ig_content_file, "w", encoding="utf-8") as f:

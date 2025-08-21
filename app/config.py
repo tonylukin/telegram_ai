@@ -6,6 +6,9 @@ from pathlib import Path
 load_dotenv()
 
 ENV = os.getenv("ENV", "dev")
+def is_prod():
+    return ENV == "prod"
+
 APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATABASE_URL = os.getenv("DATABASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
