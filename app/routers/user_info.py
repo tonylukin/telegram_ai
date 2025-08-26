@@ -9,7 +9,9 @@ from app.configs.logger import logger
 from app.db.queries.tg_users import find_all
 from app.dependencies import get_db
 from app.schemas.TgUserSchema import TgUserSchema
+from app.services.apify.tiktok_scrapper_client import TikTokScrapperClient
 from app.services.instagram_user_info_collector import InstagramUserInfoCollector
+from app.services.tiktok_user_info_collector import TikTokUserInfoCollector
 from app.services.user_info_collector import UserInfoCollector
 
 router = APIRouter(prefix="/user-info", tags=["User Info"])
@@ -38,6 +40,17 @@ async def ig_user_info(body: UserInfoBody, x_language_code: str = Header(default
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Instagram user info collector error: {e}")
+        raise HTTPException(status_code=500, detail='Please try again')
+
+@router.post("/tiktok-collect")
+async def tiktok_user_info(body: UserInfoBody, x_language_code: str = Header(default="ru"), tiktok_user_info_collector: TikTokUserInfoCollector = Depends()):
+    try:
+        result = await tiktok_user_info_collector.get_user_info(username=body.username, lang=x_language_code)
+        return {"status": "ok", "result": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"TikTok user info collector error: {e}")
         raise HTTPException(status_code=500, detail='Please try again')
 
 @router.get("/tg-users", response_model=list[TgUserSchema])

@@ -90,7 +90,7 @@ class MessageReceiver:
             if last_msg.out or last_msg.sender.bot or last_msg.sender.deleted or (last_msg.sender.first_name == 'Telegram' and last_msg.sender.verified):
                 continue
 
-            dialog_messages = ['- ' + message.message for message in messages]
+            dialog_messages = ['- ' + message.message for message in messages if message.message]
             logger.info(f"Dialog: {dialog_messages}")
             try:
                 reply_text = self.ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))

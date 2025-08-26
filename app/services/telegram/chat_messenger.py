@@ -161,7 +161,7 @@ class ChatMessenger:
         return result
 
     @staticmethod
-    def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv', limit: int = 20) -> list[str]:
+    def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv', limit: int = 100) -> list[str]:
         if not os.path.exists(csv_path):
             logger.info(f"{csv_path} doesn't exist")
             return []

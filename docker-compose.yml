@@ -72,5 +72,16 @@ services:
     depends_on:
       - db
 
+  tiktok_human_scanner_consumer:
+    image: tonylukin/telegram_ai:human_scanner_bot
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    env_file:
+      - .env
+    command: python3 app/consumers/tiktok_human_scanner_consumer.py
+    depends_on:
+      - db
+
 volumes:
   pgdata:
