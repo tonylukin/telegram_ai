@@ -7,7 +7,7 @@ import aio_pika
 import json
 
 from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, RABBITMQ_QUEUE_HUMAN_SCANNER, \
-    RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER
+    RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER, RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER
 from app.configs.logger import logger
 from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 from translations import translations
@@ -15,10 +15,22 @@ from translations import translations
 MENU, USERNAME, CHATS, CONFIRM = range(4)
 IG_USERNAME = 'ig_username'
 IG_CONFIRM = 'ig_confirm'
+TIKTOK_USERNAME = 'tiktok_username'
+TIKTOK_CONFIRM = 'tiktok_confirm'
 LOGGER_PREFIX = 'HumanScannerBot'
 DEFAULT_LANGUAGE = 'ru'
 user_data = {}
 user_lang = {} #todo to DB
+
+def get_menu(user_id: int) -> list:
+    return [
+        [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
+        # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], todo uncomment
+        [InlineKeyboardButton(f"🎵 {t(user_id, 'tiktok_human_scan')}", callback_data="tiktok_human_scan")],
+        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
+        [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
+         InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
+    ]
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = __get_user_id_from_update(update)
@@ -34,12 +46,7 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = message.chat.id
     user_data[chat_id] = {}
 
-    keyboard = [
-        [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
-        # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], todo uncomment
-        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
-        [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"), InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
-    ]
+    keyboard = get_menu(user_id)
     await message.reply_text(
         t(user_id, 'greeting'),
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -67,6 +74,13 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return IG_USERNAME
 
+    elif query.data == "tiktok_human_scan":
+        user_data[chat_id] = {}
+        await query.message.reply_text(
+            t(user_id, 'tiktok_set_username'),
+        )
+        return TIKTOK_USERNAME
+
     elif query.data == "info":
         await query.message.reply_text(
             t(user_id, 'info'),
@@ -76,11 +90,7 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def show_menu_again(query, context):
     user_id = query.from_user.id
-    keyboard = [
-        [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
-        # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], #todo uncomment
-        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
-    ]
+    keyboard = get_menu(user_id)
 
     await query.message.reply_text(
         t(user_id, 'next'),
@@ -129,6 +139,21 @@ async def ig_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return IG_CONFIRM
 
+async def tiktok_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    user_data[chat_id]['username'] = update.message.text
+    user_id = __get_user_id_from_update(update)
+
+    keyboard = [
+        [InlineKeyboardButton(f"✅ {t(user_id, 'confirm')}", callback_data="tiktok_confirm")],
+        [InlineKeyboardButton(f"🔁 {t(user_id, 'start_over')}", callback_data="restart")],
+    ]
+    await update.message.reply_text(
+        user_data[chat_id]['username'],
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return TIKTOK_CONFIRM
+
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = __get_user_id_from_update(update)
@@ -175,6 +200,16 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
             "username": user_data[chat_id]['username'],
         }
         return await add_request_to_queue(RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER, query, payload)
+
+    elif query.data == "tiktok_confirm":
+        chat_id = query.message.chat_id
+        await query.edit_message_text(
+            t(user_id, 'query_sent'),
+        )
+        payload = {
+            "username": user_data[chat_id]['username'],
+        }
+        return await add_request_to_queue(RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER, query, payload)
 
     elif query.data == "restart":
         return await restart(query, context)
@@ -223,14 +258,16 @@ if __name__ == '__main__':
         ],
         states={
             MENU: [
-                CallbackQueryHandler(handle_menu, pattern="^(ig_human_scan|human_scan|info)$"),
+                CallbackQueryHandler(handle_menu, pattern="^(tiktok_human_scan|ig_human_scan|human_scan|info)$"),
                 CallbackQueryHandler(set_language, pattern="^lang_")
             ],
             USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
             CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],
+            CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$")],
             IG_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ig_get_username)],
             IG_CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(ig_confirm|restart)$")],
-            CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$")],
+            TIKTOK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, tiktok_get_username)],
+            TIKTOK_CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(tiktok_confirm|restart)$")],
         },
         fallbacks=[
             CallbackQueryHandler(restart, pattern="^restart$"),

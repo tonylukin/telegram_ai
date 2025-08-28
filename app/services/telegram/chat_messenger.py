@@ -38,7 +38,7 @@ class ChatMessenger:
         self.messages = None
 
     @staticmethod
-    async def send_message(client: TelegramClient, chat: Channel | PeerChannel, message: str, reply_to_post_id: int|None) -> bool:
+    async def send_message(client: TelegramClient, chat: Channel | PeerChannel, message: str, reply_to_post_id: int | None) -> bool:
         try:
             await client.send_message(
                 entity=chat,

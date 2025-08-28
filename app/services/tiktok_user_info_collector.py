@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta
 
 from fastapi.params import Depends
@@ -6,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.config import TIKTOK_AI_USER_INFO_PROFILE_PROMPT_RU, TIKTOK_AI_USER_INFO_PROFILE_PROMPT_EN
 from app.configs.logger import logger
-from app.db.queries.ig_user import get_ig_user_by_username
+from app.db.queries.tiktok_user import get_tiktok_user_by_username
 from app.dependencies import get_db, get_ai_client
 from app.models.tiktok_user import TikTokUser
 from app.services.ai.ai_client_base import AiClientBase
@@ -33,7 +32,8 @@ class TikTokUserInfoCollector:
         self.tiktok_scrapper_client = tiktok_scrapper_client
 
     async def get_user_info(self, username: str, prompt: str = None, lang: str = 'ru') -> dict | None:
-        user_found = get_ig_user_by_username(self.session, username)
+        username = username.lstrip('@').lower()
+        user_found = get_tiktok_user_by_username(self.session, username)
         date_interval = datetime.now() - timedelta(weeks=12)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:
             logger.info(f"User {user_found.username} has fresh info")

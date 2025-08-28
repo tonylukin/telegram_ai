@@ -33,9 +33,7 @@ class InstagramUserInfoCollector:
         self.instagram_playwright_client = instagram_playwright_client
 
     async def get_user_info(self, username: str, prompt: str = None, lang: str = 'ru') -> dict | None:
-        if username.startswith('@'):
-            username = username[1:]
-
+        username = username.lstrip('@').lower()
         user_found = get_ig_user_by_username(self.session, username)
         date_interval = datetime.now() - timedelta(weeks=12)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:

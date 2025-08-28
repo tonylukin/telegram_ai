@@ -70,3 +70,15 @@ def get_users(limit: int = 50, offset: int = 0, session: Session = Depends(get_d
 def get_users(limit: int = 50, offset: int = 0, session: Session = Depends(get_db)):
     tg_users_invited = tg_user_invited.find_all(session, limit=limit, offset=offset)
     return tg_users_invited
+
+class BullyingBody(BaseModel):
+    channel_names: list[str]
+    usernames: list[str]
+
+@router.post("/bullying")
+async def invite_users(body: BullyingBody, user_inviter: UserInviter = Depends()):
+    try:
+        result = await user_inviter.invite_users_from_comments(source_channels=body.source_channels, target_channels=body.target_channels)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

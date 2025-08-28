@@ -1,12 +1,10 @@
 from typing import Dict, List, Any
 
-import requests
-
-from app.config import APIFY_API_TOKEN
 from app.configs.logger import logger
+from app.services.apify.apify_client import ApifyClient
 
 
-class TikTokScrapperClient:
+class TikTokScrapperClient(ApifyClient):
     async def get_data(self, username: str) -> dict[str, list] | None:
         try:
             profile_data = self.__get_following_followers(username)
@@ -34,7 +32,7 @@ class TikTokScrapperClient:
             # optional: country routing (or use Apify proxy groups if needed)
             "proxyCountryCode": "None"
         }
-        items = self.__run_apify_actor(actor_id='clockworks~tiktok-scraper', payload=payload)
+        items = self._run_apify_actor(actor_id='clockworks~tiktok-scraper', payload=payload)
 
         followers: List[str] = []
         following: List[str] = []
@@ -64,7 +62,7 @@ class TikTokScrapperClient:
             "shouldDownloadSubtitles": False,
             "shouldDownloadSlideshowImages": False,
         }
-        items = self.__run_apify_actor(actor_id='clockworks~tiktok-profile-scraper', payload=payload)
+        items = self._run_apify_actor(actor_id='clockworks~tiktok-profile-scraper', payload=payload)
         posts = []
         for it in items:
             post = {
@@ -79,17 +77,3 @@ class TikTokScrapperClient:
         return {
             'posts': posts,
         }
-
-    def __run_apify_actor(self, actor_id: str, payload: dict):
-        url = f"https://api.apify.com/v2/acts/{actor_id}/run-sync-get-dataset-items"
-        params = {
-            "token": APIFY_API_TOKEN,
-            "format": "json",
-            "clean": "true"
-        }
-        resp = requests.post(url, params=params, json=payload, timeout=600)
-        if resp.status_code >= 300:
-            logger.error(f"Apify actor failed with status code: [{resp.status_code}] {resp.text}")
-            raise RuntimeError(resp.text)
-
-        return resp.json()
