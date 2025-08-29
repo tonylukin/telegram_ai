@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, func, Index, JSON, ARRAY
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import relationship
 from app.models.base import Base
 
@@ -21,7 +22,7 @@ class Bot(Base):
     created_at = Column(DateTime, server_default=func.now())
     app_id = Column(Integer, nullable=True)
     app_token = Column(String(32), nullable=True)
-    roles = Column(ARRAY(String), nullable=True)
+    roles = Column(MutableList.as_mutable(ARRAY(String)), nullable=True)
     status = Column(String, nullable=True)
     phone_number = Column(String(15), nullable=True)
     started_at = Column(DateTime)

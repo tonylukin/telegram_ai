@@ -10,7 +10,7 @@ from app.dependencies import get_db
 from app.schemas.BotCommentSchema import BotCommentSchema
 from app.schemas.TgUserInvitedSchema import TgUserInvitedSchema
 from app.services.telegram.assigned_channels_messenger import AssignedChannelsMessenger
-# from app.services.telegram.bullying_machine import BullyingMachine
+from app.services.telegram.bullying_machine import BullyingMachine
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.reaction_sender import ReactionSender
 from app.services.telegram.user_inviter import UserInviter
@@ -72,14 +72,14 @@ def get_users(limit: int = 50, offset: int = 0, session: Session = Depends(get_d
     tg_users_invited = tg_user_invited.find_all(session, limit=limit, offset=offset)
     return tg_users_invited
 
-# class BullyingBody(BaseModel):
-#     username: str
-#     channel_names: list[str]
-#
-# @router.post("/bullying")
-# async def bullying(body: BullyingBody, bullying_machine: BullyingMachine = Depends()):
-#     try:
-#         result = await bullying_machine.answer_to_messages(username=body.username, channel_usernames=body.channel_names)
-#         return {"status": "ok", "result": result}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+class BullyingBody(BaseModel):
+    username: str
+    channel_names: list[str]
+
+@router.post("/bullying")
+async def bullying(body: BullyingBody, bullying_machine: BullyingMachine = Depends()):
+    try:
+        result = await bullying_machine.answer_to_messages(username=body.username, channel_usernames=body.channel_names)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

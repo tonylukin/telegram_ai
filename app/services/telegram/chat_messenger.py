@@ -40,8 +40,9 @@ class ChatMessenger:
     @staticmethod
     async def send_message(client: TelegramClient, chat: Channel | PeerChannel, message: str, reply_to_post_id: int | None) -> bool:
         try:
+            entity = await client.get_entity(chat)
             await client.send_message(
-                entity=chat,
+                entity=entity,
                 message=message,
                 reply_to=reply_to_post_id
             )

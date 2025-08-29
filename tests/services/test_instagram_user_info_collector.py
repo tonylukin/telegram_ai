@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import AsyncMock, patch
 
-from app.services.instagram_user_info_collector import InstagramUserInfoCollector
+from app.services.collectors.instagram_user_info_collector import InstagramUserInfoCollector
 from app.services.playwright.instagram_playwright_client import InstagramPlaywrightClient
 from app.services.proxy.proxy_fetcher_decodo import ProxyFetcherDecodo
 

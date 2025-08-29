@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 
 from telethon import TelegramClient
 from telethon.errors import UserAlreadyParticipantError, FloodWaitError, UserNotParticipantError, ChannelPrivateError
+from telethon.tl import TLObject
 from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest, GetParticipantRequest, \
     GetParticipantsRequest, EditAdminRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
@@ -39,10 +40,10 @@ async def has_antispam_bot(chat: Channel, client: TelegramClient) -> bool:
         logger.error(f"⚠️ Could not check for antispam bots in {chat.title}: {e}")
     return False
 
-async def get_user_by_username(client: TelegramClient, username: str) -> User | None:
+async def get_instance_by_username(client: TelegramClient, username: str) -> User | Channel | Chat | None:
     try:
-        user = await client.get_entity(username)
-        return user
+        instance = await client.get_entity(int(username) if username.isnumeric() else username)
+        return instance
     except Exception as e:
         logger.error(f"Error: {e}")
         return None

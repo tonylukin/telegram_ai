@@ -9,10 +9,9 @@ from app.configs.logger import logger
 from app.db.queries.tg_users import find_all
 from app.dependencies import get_db
 from app.schemas.TgUserSchema import TgUserSchema
-from app.services.apify.tiktok_scrapper_client import TikTokScrapperClient
-from app.services.instagram_user_info_collector import InstagramUserInfoCollector
-from app.services.tiktok_user_info_collector import TikTokUserInfoCollector
-from app.services.user_info_collector import UserInfoCollector
+from app.services.collectors.instagram_user_info_collector import InstagramUserInfoCollector
+from app.services.collectors.tiktok_user_info_collector import TikTokUserInfoCollector
+from app.services.collectors.user_info_collector import UserInfoCollector
 
 router = APIRouter(prefix="/user-info", tags=["User Info"])
 

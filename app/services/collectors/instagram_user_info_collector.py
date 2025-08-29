@@ -13,7 +13,7 @@ from app.services.playwright.instagram_playwright_client import InstagramPlaywri
 
 
 class InstagramUserInfoCollector:
-    __translations = {
+    _translations = {
         'ru': {
             'profile_prompt': IG_AI_USER_INFO_PROFILE_PROMPT_RU,
         },
@@ -28,25 +28,25 @@ class InstagramUserInfoCollector:
             session: Session = Depends(get_db),
             instagram_playwright_client: InstagramPlaywrightClient = Depends(),
     ):
-        self.ai_client = ai_client
-        self.session = session
-        self.instagram_playwright_client = instagram_playwright_client
+        self._ai_client = ai_client
+        self._session = session
+        self._instagram_playwright_client = instagram_playwright_client
 
     async def get_user_info(self, username: str, prompt: str = None, lang: str = 'ru') -> dict | None:
         username = username.lstrip('@').lower()
-        user_found = get_ig_user_by_username(self.session, username)
+        user_found = get_ig_user_by_username(self._session, username)
         date_interval = datetime.now() - timedelta(weeks=12)
         if user_found and user_found.updated_at and user_found.updated_at > date_interval:
             logger.info(f"User {user_found.username} has fresh info")
             return user_found.description
 
-        profile_data = await self.instagram_playwright_client.get_data(username)
+        profile_data = await self._instagram_playwright_client.get_data(username)
         if profile_data is None:
             return None
 
         logger.info(f"Data from {username}: {profile_data}")
-        overview = self.ai_client.generate_text(
-            (prompt or self.__translations.get(lang).get('profile_prompt')).format(
+        overview = self._ai_client.generate_text(
+            (prompt or self._translations.get(lang).get('profile_prompt')).format(
                 followers=profile_data.get('followers'),
                 following=profile_data.get('following'),
                 posts=profile_data.get('posts'),
@@ -68,12 +68,12 @@ class InstagramUserInfoCollector:
         try:
             if user_found is None:
                 user_found = IgUser(username=username, description=full_desc)
-                self.session.add(user_found)
+                self._session.add(user_found)
 
             user_found.description = full_desc
             user_found.updated_at = datetime.now()
-            self.session.commit()
+            self._session.commit()
         except Exception as e:
-            self.session.rollback()
+            self._session.rollback()
             logger.error(e)
 

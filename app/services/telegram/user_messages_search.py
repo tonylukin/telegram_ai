@@ -1,22 +1,25 @@
 from collections.abc import Iterable
+from typing import TypedDict
 
 from telethon import TelegramClient
 from telethon.tl.custom.message import Message
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
-from telethon.tl.types import PeerChannel, MessagePeerReaction
-from telethon.tl.types import PeerUser, User
+from telethon.tl.types import PeerChannel, MessagePeerReaction, PeerUser, User, Chat, Channel
 
 from app.configs.logger import logging
-from app.services.telegram.helpers import get_user_by_username
+from app.services.telegram.helpers import get_instance_by_username
 from app.config import ENV
 
+class ChatMessages(TypedDict):
+    chat: Chat | Channel
+    messages: list[Message]
 
 class UserMessagesSearch:
 
     """@deprecated"""
     @staticmethod
     async def get_last_messages_from_user(client: TelegramClient, username: str, limit: int = 10):
-        user = await get_user_by_username(client, username)
+        user = await get_instance_by_username(client, username)
 
         messages = []
 
@@ -29,21 +32,27 @@ class UserMessagesSearch:
 
         return messages
 
-    """@deprecated"""
     @staticmethod
-    async def get_user_messages_from_chat(client: TelegramClient, chats: list[str], username: str, limit: int = 50):
-        user = await get_user_by_username(client, username)  # assume this returns a User or int
-        messages = []
+    async def get_user_messages_from_chats(client: TelegramClient, chats: list[str], username: str, limit: int = 50) -> list[ChatMessages]:
+        user = await get_instance_by_username(client, username)  # assume this returns a User or int
+        messages_by_chat = []
+        chats = list(set(chats))
 
         for chat in chats:
             try:
-                chat_entity = await client.get_entity(chat)
+                chat_entity = await get_instance_by_username(client, chat)
+                messages = []
                 async for msg in client.iter_messages(chat_entity, from_user=user.id, limit=limit):
-                    messages.append(msg.message if isinstance(msg, Message) else None)
+                    if isinstance(msg, Message):
+                        messages.append(msg)
+                messages_by_chat.append({
+                    'chat': chat_entity,
+                    'messages': messages,
+                })
             except Exception as e:
                 logging.error(f"Error accessing chat {chat}: {e}")
 
-        return messages
+        return messages_by_chat
 
     @staticmethod
     async def get_user_comments_reactions(client: TelegramClient, channel_usernames: list[str], user: User, limit: int = 50) -> dict[str, dict[str, set[str]]]:

@@ -15,7 +15,7 @@ async def auth_middleware(request: Request, call_next):
     if request.url.path in ["/open", "/docs", "/openapi.json"] or ENV == 'dev':
         return await call_next(request)
 
-    auth_header = request.headers.get("Authorization")
+    auth_header = request.headers.get("Authorization") or request.query_params.get("Authorization")
     if not auth_header:
         return JSONResponse(status_code=401, content={"detail": "Authorization header missing"})
 
