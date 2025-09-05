@@ -8,12 +8,12 @@ from app.config import \
 from app.configs.logger import logger
 from app.bots.human_scanner_ai.translations import translations
 from app.consumers.human_scanner_consumer import HumanScannerConsumer
+from app.services.notification_sender import NotificationSender
 
 
 class TikTokHumanScannerConsumer(HumanScannerConsumer):
 
-    @staticmethod
-    async def _get_desc_from_api(payload: dict[str, str], lang_code: str) -> str:
+    async def _get_desc_from_api(self, payload: dict[str, str], lang_code: str) -> str:
         headers = {
             "Authorization": f"Bearer {API_TOKEN}",
             "X-Language-Code": lang_code,
@@ -35,11 +35,20 @@ class TikTokHumanScannerConsumer(HumanScannerConsumer):
                     return desc
                 else:
                     text = await resp.text()
-                    logger.error(f"❌ Error calling API: [{resp.status}] {text}")
+                    message = f"❌ Error calling API: [{resp.status}] {text}"
+                    logger.error(message)
+                    await self._notification_sender.send_notification_message(message)
                     raise HTTPException(status_code=resp.status, detail=text)
 
+    def get_notification_message(self) -> str | None:
+        if self.output_data is None:
+            return None
+
+        payload: dict = self.output_data.get("payload")
+        return f"[TikTok] Username: {payload['username']}\nDescription: {self.output_data.get('desc')}"
+
 async def main():
-    consumer = TikTokHumanScannerConsumer(RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER)
+    consumer = TikTokHumanScannerConsumer(queue=RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER, notification_sender=NotificationSender())
     await consumer.init()
 
 if __name__ == "__main__":

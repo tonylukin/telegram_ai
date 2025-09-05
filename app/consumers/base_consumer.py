@@ -4,28 +4,45 @@ import aio_pika
 
 from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 from app.configs.logger import logger
+from app.services.notification_sender import NotificationSender
+
 
 class BaseConsumer(ABC):
     MAX_RETRIES = 5
     RETRY_DELAY = 5
     MESSAGE_RETRY_DELAY = 180
 
-    def __init__(self, queue: str, message_retry_delay: int = MESSAGE_RETRY_DELAY):
-        self.queue = queue
-        self.message_retry_delay = message_retry_delay
+    def __init__(self, queue: str, notification_sender: NotificationSender, message_retry_delay: int = MESSAGE_RETRY_DELAY):
+        self._queue = queue
+        self._message_retry_delay = message_retry_delay
+        self._notification_sender = notification_sender
 
     async def init(self):
         while True:
             try:
                 logger.info("🚀 Connecting to RabbitMQ…")
-                connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
+                connection = await aio_pika.connect_robust(
+                    f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/"
+                )
                 async with connection:
                     channel = await connection.channel()
                     await channel.set_qos(prefetch_count=5)
 
-                    queue = await channel.declare_queue(self.queue, durable=True)
-                    logger.info(f"🎯 [{self.queue}] Waiting for messages…")
+                    # Declare DLX (dead letter exchange) and DLQ
+                    dlx = await channel.declare_exchange(
+                        f"{self._queue}.dlx", aio_pika.ExchangeType.DIRECT, durable=True
+                    )
+                    dlq = await channel.declare_queue(f"{self._queue}.dlq", durable=True)
+                    await dlq.bind(dlx, routing_key=self._queue)
 
+                    # Declare main queue with DLX params
+                    args = {
+                        "x-dead-letter-exchange": f"{self._queue}.dlx",
+                        "x-dead-letter-routing-key": self._queue,
+                    }
+                    queue = await channel.declare_queue(self._queue, durable=True, arguments=args)
+
+                    logger.info(f"🎯 [{self._queue}] Waiting for messages…")
                     await queue.consume(self.__handle_message, no_ack=False)
 
                     await asyncio.Future()
@@ -46,6 +63,9 @@ class BaseConsumer(ABC):
                     if result:
                         await message.ack()
                         success = True
+                        notification_message = self.get_notification_message()
+                        if notification_message:
+                            await self._notification_sender.send_notification_message(notification_message)
                         break
                     else:
                         raise Exception("handle_message returned False")
@@ -53,16 +73,21 @@ class BaseConsumer(ABC):
                 except Exception as e:
                     logger.error(f"❌ [{attempt}] Error processing message: {e}")
                     if attempt < BaseConsumer.MAX_RETRIES:
-                        await asyncio.sleep(self.message_retry_delay)
+                        await asyncio.sleep(self._message_retry_delay)
                     else:
                         logger.error("🚫 Max retries reached, will requeue message")
         finally:
             if not success:
                 try:
-                    await message.nack(requeue=True)
+                    logger.error("☠️ Message moved to Dead Letter Queue")
+                    await message.reject(requeue=False)
                 except Exception as nack_err:
-                    logger.error(f"⚠️ Failed to nack message: {nack_err}")
+                    logger.error(f"⚠️ Failed to reject message: {nack_err}")
 
     @abstractmethod
     async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage) -> bool:
         pass
+
+    @abstractmethod
+    def get_notification_message(self) -> str | None:
+        return None

@@ -61,12 +61,15 @@ Connect and find the people you need in Telegram — quickly, easily and effecti
         "share": "Share",
         "no_data": "No data",
         "user_not_found": "User not found",
+        "feedback": "Feedback",
+        "feedback_text": "Here you can leave any feedback for developers, suggest features or report bugs",
+        "feedback_outro": "Message sent",
     },
     "ru": {
         "human_scan": "Сканировать пользователя Telegram",
         "ig_human_scan": "Сканировать пользователя Instagram",
         "tiktok_human_scan": "Сканировать пользователя TikTok",
-        "about": "Правила использования",
+        "about": "Информация",
         "greeting": (
             "👋 Привет! Этот бот дает описание человека на основе его активности в указанных каналах.\n"
             "У бота есть ограничения, поэтому будет использована активность за последнее время.\n"
@@ -121,5 +124,8 @@ Connect and find the people you need in Telegram — quickly, easily and effecti
         "share": "Поделиться",
         "no_data": "Нет данных",
         "user_not_found": "Пользователь не найден",
+        "feedback": "Обратная связь",
+        "feedback_text": "Здесь можно оставить любую обратную связь разработчикам, предложить фичи или сообщить о багах",
+        "feedback_outro": "Сообщение отправлено",
     },
 }

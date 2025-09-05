@@ -8,6 +8,8 @@ from app.services.telegram.clients_creator import ClientsCreator
 from telethon.errors import RPCError, AuthKeyUnregisteredError, UserDeactivatedBanError, UserDeactivatedError, \
     ChatWriteForbiddenError, UserBannedInChannelError, FloodWaitError, ChatAdminRequiredError
 
+from app.services.telegram.helpers import join_chats
+
 
 class BotHealthChecker:
     def __init__(
@@ -29,7 +31,9 @@ class BotHealthChecker:
                 await self._clients_creator.start_client(bot_client)
                 me = await client.get_me()
                 await client.send_message(me, "Test message (ignore) ✅")
-                await client.send_message(await client.get_entity('@testgroupssdv'), "Test message (ignore) ✅")
+                test_chat = '@testgroupssdv' #todo to config
+                await join_chats(client, [test_chat])
+                await client.send_message(await client.get_entity(test_chat), "Test message (ignore) ✅")
 
             except ChatWriteForbiddenError:
                 logger.error("❌ Cannot send messages: ChatWriteForbiddenError (likely muted/restricted).")

@@ -9,7 +9,7 @@ from app.db.queries.ig_user import get_ig_user_by_username
 from app.dependencies import get_db, get_ai_client
 from app.models.ig_user import IgUser
 from app.services.ai.ai_client_base import AiClientBase
-from app.services.playwright.instagram_playwright_client import InstagramPlaywrightClient
+from app.services.apify.instagram_scrapper_client import InstagramScrapperClient
 
 
 class InstagramUserInfoCollector:
@@ -26,11 +26,11 @@ class InstagramUserInfoCollector:
             self,
             ai_client: AiClientBase = Depends(get_ai_client),
             session: Session = Depends(get_db),
-            instagram_playwright_client: InstagramPlaywrightClient = Depends(),
+            instagram_scrapper_client: InstagramScrapperClient = Depends(),
     ):
         self._ai_client = ai_client
         self._session = session
-        self._instagram_playwright_client = instagram_playwright_client
+        self._instagram_scrapper_client = instagram_scrapper_client
 
     async def get_user_info(self, username: str, prompt: str = None, lang: str = 'ru') -> dict | None:
         username = username.lstrip('@').lower()
@@ -40,7 +40,7 @@ class InstagramUserInfoCollector:
             logger.info(f"User {user_found.username} has fresh info")
             return user_found.description
 
-        profile_data = await self._instagram_playwright_client.get_data(username)
+        profile_data = await self._instagram_scrapper_client.get_data(username)
         if profile_data is None:
             return None
 

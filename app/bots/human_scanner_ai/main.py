@@ -10,9 +10,11 @@ from app.config import TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN, RABBITMQ_QUEUE_HUMAN
     RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER, RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER
 from app.configs.logger import logger
 from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
+from app.services.notification_sender import NotificationSender
 from translations import translations
 
 MENU, USERNAME, CHATS, CONFIRM = range(4)
+SET_FEEDBACK = 'set_feedback'
 IG_USERNAME = 'ig_username'
 IG_CONFIRM = 'ig_confirm'
 TIKTOK_USERNAME = 'tiktok_username'
@@ -21,13 +23,15 @@ LOGGER_PREFIX = 'HumanScannerBot'
 DEFAULT_LANGUAGE = 'ru'
 user_data = {}
 user_lang = {} #todo to DB
+notification_sender = NotificationSender()
 
 def get_menu(user_id: int) -> list:
     return [
         [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
         # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], todo uncomment
         [InlineKeyboardButton(f"🎵 {t(user_id, 'tiktok_human_scan')}", callback_data="tiktok_human_scan")],
-        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info")],
+        [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info"),
+         InlineKeyboardButton(f"💬 {t(user_id, 'feedback')}", callback_data="feedback")],
         [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
          InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
     ]
@@ -86,6 +90,12 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             t(user_id, 'info'),
         )
         return await show_menu_again(query, context)
+
+    elif query.data == "feedback":
+        await query.message.reply_text(
+            t(user_id, 'feedback_text'),
+        )
+        return SET_FEEDBACK
 
 
 async def show_menu_again(query, context):
@@ -154,6 +164,19 @@ async def tiktok_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
     return TIKTOK_CONFIRM
 
+async def set_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = __get_user_id_from_update(update)
+    user_info = __get_user_info_from_update(update)
+    text = f"{user_info.get('name')}:\n{update.message.text}"
+    await notification_sender.send_notification_message(text)
+
+    keyboard = get_menu(user_id)
+    await update.message.reply_text(
+        t(user_id, 'feedback_outro'),
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return MENU
+
 async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_id = __get_user_id_from_update(update)
@@ -173,7 +196,6 @@ async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return CONFIRM
-
 
 async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -219,6 +241,20 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 def __get_user_id_from_update(update: Update):
     return update.effective_user.id if hasattr(update, 'effective_user') else update.message.from_user.id
 
+def __get_user_info_from_update(update: Update):
+    user = update.effective_user
+    name_parts = []
+    if user.first_name:
+        name_parts.append(user.first_name)
+    if user.last_name:
+        name_parts.append(user.last_name)
+    if user.username:
+        name_parts.append('@' + user.username)
+    return {
+        "user_id": user.id,
+        "name": ' '.join(name_parts),
+    }
+
 async def add_request_to_queue(queue_name: str, query, payload):
     user_id = query.from_user.id
     lang_code = user_lang.get(user_id, DEFAULT_LANGUAGE)
@@ -226,7 +262,14 @@ async def add_request_to_queue(queue_name: str, query, payload):
         connection = await aio_pika.connect_robust(f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASSWORD}@{RABBITMQ_HOST}/")
         async with connection:
             channel = await connection.channel()
-            queue = await channel.declare_queue(queue_name, durable=True)
+            queue = await channel.declare_queue(
+                queue_name,
+                durable=True,
+                arguments={
+                    "x-dead-letter-exchange": f"{queue_name}.dlx",
+                    "x-dead-letter-routing-key": queue_name,
+                }
+            )
             message_body = json.dumps({"data": payload, "chat_id": query.message.chat_id, "lang_code": lang_code}).encode("utf-8")
 
             message = aio_pika.Message(
@@ -258,9 +301,10 @@ if __name__ == '__main__':
         ],
         states={
             MENU: [
-                CallbackQueryHandler(handle_menu, pattern="^(tiktok_human_scan|ig_human_scan|human_scan|info)$"),
+                CallbackQueryHandler(handle_menu, pattern="^(tiktok_human_scan|ig_human_scan|human_scan|info|feedback)$"),
                 CallbackQueryHandler(set_language, pattern="^lang_")
             ],
+            SET_FEEDBACK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_feedback)],
             USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
             CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],
             CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$")],

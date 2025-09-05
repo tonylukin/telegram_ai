@@ -11,7 +11,8 @@ async def test_get_user_info_real_user():
     Integration test: fetch real Instagram data for tony.lukin
     Requires: network access and valid Instagram session (if needed).
     """
-    collector = InstagramUserInfoCollector(instagram_playwright_client=InstagramPlaywrightClient(proxy_fetcher=ProxyFetcherDecodo()))
+    collector = InstagramUserInfoCollector(
+        instagram_scrapper_client=InstagramPlaywrightClient(proxy_fetcher=ProxyFetcherDecodo()))
 
     result = await collector._InstagramUserInfoCollector__get_instagram_profile_data("tony.lukin")
 
@@ -28,7 +29,7 @@ async def test_get_user_info_real_user():
 
 @pytest.mark.asyncio
 async def test_get_user_info_not_found(session):
-    collector = InstagramUserInfoCollector(session=session, instagram_playwright_client=InstagramPlaywrightClient(proxy_fetcher=ProxyFetcherDecodo()))
+    collector = InstagramUserInfoCollector(session=session, instagram_scrapper_client=InstagramPlaywrightClient(proxy_fetcher=ProxyFetcherDecodo()))
     with pytest.raises(ValueError):
         await collector.get_user_info('nonexistent_user243434324234234324234234')
 

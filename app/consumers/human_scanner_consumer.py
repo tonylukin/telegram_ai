@@ -11,10 +11,13 @@ from app.config import RABBITMQ_QUEUE_HUMAN_SCANNER, \
 from app.configs.logger import logger
 from app.consumers.base_consumer import BaseConsumer
 from app.bots.human_scanner_ai.translations import translations
+from app.services.notification_sender import NotificationSender
 
 TELEGRAM_API = f"https://api.telegram.org/bot{TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN}"
 
 class HumanScannerConsumer(BaseConsumer):
+    output_data: dict[str, str] = None
+
     async def handle_message(self, message: aio_pika.abc.AbstractIncomingMessage) -> bool:
         data = json.loads(message.body.decode())
         logger.info(f"📥 Received: {data}")
@@ -22,6 +25,10 @@ class HumanScannerConsumer(BaseConsumer):
         payload = data['data']
         lang_code = data['lang_code']
         desc = await self._get_desc_from_api(payload, lang_code)
+        self.output_data = {
+            'payload': payload,
+            'desc': desc,
+        }
 
         await self.__send_message(chat_id, desc, lang_code)
         return True
@@ -48,8 +55,7 @@ class HumanScannerConsumer(BaseConsumer):
                 }
             )
 
-    @staticmethod
-    async def _get_desc_from_api(payload: dict[str, str], lang_code: str) -> str:
+    async def _get_desc_from_api(self, payload: dict[str, str], lang_code: str) -> str:
         headers = {
             "Authorization": f"Bearer {API_TOKEN}",
             "X-Language-Code": lang_code,
@@ -73,11 +79,20 @@ class HumanScannerConsumer(BaseConsumer):
                     return desc
                 else:
                     text = await resp.text()
-                    logger.error(f"❌ Error calling API: [{resp.status}] {text}")
+                    message = f"❌ Error calling API: [{resp.status}] {text}"
+                    logger.error(message)
+                    await self._notification_sender.send_notification_message(message)
                     raise HTTPException(status_code=resp.status, detail=text)
 
+    def get_notification_message(self) -> str | None:
+        if self.output_data is None:
+            return None
+
+        payload: dict = self.output_data.get("payload")
+        return f"[Telegram] Username: {payload['username']}\nChats: {', '.join(payload['chats'])}\nDescription: {self.output_data.get('desc')}"
+
 async def main():
-    consumer = HumanScannerConsumer(RABBITMQ_QUEUE_HUMAN_SCANNER)
+    consumer = HumanScannerConsumer(queue=RABBITMQ_QUEUE_HUMAN_SCANNER, notification_sender=NotificationSender())
     await consumer.init()
 
 if __name__ == "__main__":
