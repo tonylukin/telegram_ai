@@ -2,6 +2,7 @@ import asyncio
 import random
 import os
 import csv
+from multiprocessing.util import MAXFD
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
@@ -20,6 +21,7 @@ from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_
 from app.services.telegram.helpers import is_user_in_group, has_antispam_bot, get_chat_from_channel
 from app.services.text_maker import TextMakerDependencyConfig
 
+MAX_CHANNELS_PER_BOT = 5
 
 class ChatMessenger:
     def __init__(
@@ -79,7 +81,7 @@ class ChatMessenger:
 
         chats = []
         post_texts = {}
-        for name in chat_names:
+        for name in chat_names[:MAX_CHANNELS_PER_BOT]:
             try:
                 chat = await client.get_entity(name)
                 if not isinstance(chat, Channel):

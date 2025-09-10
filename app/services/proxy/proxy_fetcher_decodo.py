@@ -4,7 +4,7 @@ import random
 from app.config import PROXY_DECODO_PASSWORD, PROXY_DECODO_USERNAME, ENV
 from app.configs.logger import logger
 
-# todo use interface for different implementations
+# use interface for different implementations
 class ProxyFetcherDecodo:
 
     def get_random_proxy_config(self) -> dict | None:

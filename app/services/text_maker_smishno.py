@@ -5,7 +5,7 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 
 from app.config import AI_SMISHNO_JOKE_ADJECTIVES, AI_SMISHNO_TEXT_PROMPT
-from app.configs.logger import logging
+from app.configs.logger import logging, logger
 from app.dependencies import get_db
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.news.news_maker_base import NewsMakerBase
@@ -39,8 +39,15 @@ class TextMakerSmishno:
         try:
             news_item = news_list[0]
             adjective = random.choice(AI_SMISHNO_JOKE_ADJECTIVES)
-            generated_text = self.ai_client.generate_text(AI_SMISHNO_TEXT_PROMPT.format(news_text=news_item.get('text'), joke_adjective=adjective))
-            return Response(original=news_item.get('text'), generated=generated_text, adjective=adjective, image=None) # todo gen image
+            prompt = AI_SMISHNO_TEXT_PROMPT.format(news_text=news_item.get('text'), joke_adjective=adjective)
+            generated_text = self.ai_client.generate_text(prompt=prompt)
+            image = None
+            try:
+                image = self.ai_client_images.generate_image(prompt=prompt)
+            except Exception as e:
+                logger.error(f'TEXT MAKER SMISHNO ERROR: {e}')
+
+            return Response(original=news_item.get('text'), generated=generated_text, adjective=adjective, image=image)
         except Exception as e:
             logging.error(f'Skipping news, error: {e}')
             return None
