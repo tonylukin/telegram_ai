@@ -18,7 +18,7 @@ class InstagramScrapperClient(BaseApifyClient):
             return data if data else None
 
         except Exception as e:
-            logger.error(f"Instagram scraper error for '{username}': {e}")
+            logger.error(f"Instagram scrapper error for '{username}': {e}")
             return None
 
     def __get_profile(self, username: str) -> dict[str, dict] | None:
@@ -26,10 +26,12 @@ class InstagramScrapperClient(BaseApifyClient):
             actor_id = "apify/instagram-profile-scraper"
             run_input = {
                 "usernames": [username],
-                # "resultsType": "details" # Этот параметр может быть устаревшим, актор сам вернет детали
             }
 
             resp = self._run_apify_actor(actor_id, run_input)
+
+            if resp and resp[0].get('error'):
+                raise Exception(resp[0].get('errorDescription'))
 
             if resp and len(resp) > 0:
                 return {"profile": resp[0]}

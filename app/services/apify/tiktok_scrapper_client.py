@@ -65,6 +65,10 @@ class TikTokScrapperClient(BaseApifyClient):
             "shouldDownloadSlideshowImages": False,
         }
         items = self._run_apify_actor(actor_id='clockworks~tiktok-profile-scraper', payload=payload)
+
+        if items and items[0].get('error'):
+            raise Exception(items[0].get('error'))
+
         posts = []
         for it in items:
             post = {
