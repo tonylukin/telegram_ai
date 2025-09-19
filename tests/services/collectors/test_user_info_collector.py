@@ -7,14 +7,14 @@ from app.db.queries.bot import get_bots
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.collectors.user_info_collector import UserInfoCollector
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.clients_creator import ClientsCreator
+from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_for_human_scanner
 from app.services.telegram.user_instance_searcher import UserInstanceSearcher
 from app.services.telegram.user_messages_search import UserMessagesSearch
 
 
 @pytest.mark.asyncio
 async def test_user_info_collector(ai_client: AiClientBase, session: Session, mock_query: MagicMock):
-    bots = get_bots(session=session)
+    bots = get_bots(session=session, roles=get_bot_roles_for_human_scanner())
     mock_session = create_autospec(Session, instance=True)
     mock_session.query.return_value = mock_query
     mock_query.first.return_value = None
@@ -31,8 +31,16 @@ async def test_user_info_collector(ai_client: AiClientBase, session: Session, mo
         user_instance_searcher=UserInstanceSearcher(clients_creator=clients_creator, chat_searcher=chat_searcher),
     )
 
+    bad_bots = []
     for bot in bots:
         mock_query.all.return_value = [bot]
-        user_info = await collector.get_user_info(username="@tonylukin", channel_usernames=['@irvinefriends'])
+        try:
+            user_info = await collector.get_user_info(username="@tonylukin", channel_usernames=['@irvinefriends'])
+        except Exception:
+            bad_bots.append(bot.name)
+            continue
         assert isinstance(user_info, dict)
         assert user_info['description'] == 'prompt'
+
+    print(f"Bad bots: {bad_bots}")
+

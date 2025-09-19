@@ -7,11 +7,6 @@ from app.db.session import Session
 
 
 @pytest.fixture
-def collector():
-    """Returns a fresh InstagramUserInfoCollector instance for each test."""
-    return InstagramUserInfoCollector()
-
-@pytest.fixture
 def session():
     db = Session()
     try:

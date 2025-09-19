@@ -1,13 +1,14 @@
 from typing import Dict, List, Any
 
 from app.configs.logger import logger
-from app.services.apify.apify_client import ApifyClient
+from app.services.apify.base_apify_client import BaseApifyClient
 
 
-class TikTokScrapperClient(ApifyClient):
+class TikTokScrapperClient(BaseApifyClient):
     async def get_data(self, username: str) -> dict[str, list] | None:
         try:
-            profile_data = self.__get_following_followers(username)
+            # profile_data = self.__get_following_followers(username)
+            profile_data = {}
             profile_data.update(self.__get_posts(username))
         except Exception as e:
             logger.error(e)
@@ -15,6 +16,7 @@ class TikTokScrapperClient(ApifyClient):
 
         return profile_data
 
+    # @deprecated
     def __get_following_followers(self, nickname: str, follow_limit: int = 50):
         payload = {
             "profiles": [nickname.lstrip('@')],
@@ -72,7 +74,8 @@ class TikTokScrapperClient(ApifyClient):
                 "place": it.get("locationCreated") or None,
                 "video_url": it.get("webVideoUrl") or None,
             }
-            posts.append(post)
+            if post.get('id'):
+                posts.append(post)
 
         return {
             'posts': posts,

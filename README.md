@@ -29,6 +29,8 @@ PYTHONPATH=. python3 app/console/client_messages_listener.py --bot=
 ### Run consumers
 ```bash
 PYTHONPATH=. python3 app/consumers/human_scanner_consumer.py
+PYTHONPATH=. python3 app/consumers/instagram_human_scanner_consumer.py
+PYTHONPATH=. python3 app/consumers/tiktok_human_scanner_consumer.py
 ```
 
 ### Run script to generate news

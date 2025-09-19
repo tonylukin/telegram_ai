@@ -47,16 +47,13 @@ class InstagramUserInfoCollector:
         logger.info(f"Data from {username}: {profile_data}")
         overview = self._ai_client.generate_text(
             (prompt or self._translations.get(lang).get('profile_prompt')).format(
-                followers=profile_data.get('followers'),
-                following=profile_data.get('following'),
+                related=profile_data.get('related'),
                 posts=profile_data.get('posts'),
                 bio=profile_data.get('bio', ''),
             )
         )
         full_desc = {
             'description': overview,
-            'followers': len(profile_data.get('followers')),
-            'following': len(profile_data.get('following')),
             'posts': len(profile_data.get('posts')),
             'bio': profile_data.get('bio'),
         }

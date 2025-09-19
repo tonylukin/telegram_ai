@@ -28,8 +28,8 @@ notification_sender = NotificationSender()
 def get_menu(user_id: int) -> list:
     return [
         [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
-        # [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")], todo uncomment
-        [InlineKeyboardButton(f"🎵 {t(user_id, 'tiktok_human_scan')}", callback_data="tiktok_human_scan")],
+        [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan"),
+         InlineKeyboardButton(f"🎵 {t(user_id, 'tiktok_human_scan')}", callback_data="tiktok_human_scan")],
         [InlineKeyboardButton(f"ℹ️ {t(user_id, 'about')}", callback_data="info"),
          InlineKeyboardButton(f"💬 {t(user_id, 'feedback')}", callback_data="feedback")],
         [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),

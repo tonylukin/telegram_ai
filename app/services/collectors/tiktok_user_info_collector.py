@@ -40,21 +40,21 @@ class TikTokUserInfoCollector:
             return user_found.description
 
         profile_data = await self._tiktok_scrapper_client.get_data(username)
-        if profile_data is None:
+        if profile_data is None or not profile_data.get('posts'):
             return None
 
         logger.info(f"Data from {username}: {profile_data}")
         overview = self._ai_client.generate_text(
             (prompt or self._translations.get(lang).get('profile_prompt')).format(
-                followers=profile_data.get('followers'),
-                following=profile_data.get('following'),
+                # followers=profile_data.get('followers'),
+                # following=profile_data.get('following'),
                 posts=profile_data.get('posts'),
             )
         )
         full_desc = {
             'description': overview,
-            'followers': len(profile_data.get('followers')),
-            'following': len(profile_data.get('following')),
+            # 'followers': len(profile_data.get('followers')),
+            # 'following': len(profile_data.get('following')),
             'posts': len(profile_data.get('posts')),
         }
         self.__save_to_db(user_found, username, full_desc)

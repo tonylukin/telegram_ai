@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi import Request
 from sqlalchemy.orm import Session
 
+from app.config import PROMOTING_CHANNEL, PROMOTING_CHANNEL_TO_INVITE
 from app.db.queries.tg_bot_message import find_all
 from app.dependencies import get_db
 from app.schemas.TgBotMessageSchema import TgBotMessageSchema
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/message", tags=["Message"])
 async def reply_to_all_messages(request: Request, message_receiver: MessageReceiver = Depends()):
     try:
         data = await request.json()
-        result = await message_receiver.check_and_reply(promoting_channel=data.get('promoting_channel'), promoting_channel_to_invite=data.get('promoting_channel_to_invite'))
+        result = await message_receiver.check_and_reply(promoting_channel=data.get('promoting_channel', PROMOTING_CHANNEL), promoting_channel_to_invite=data.get('promoting_channel_to_invite', PROMOTING_CHANNEL_TO_INVITE))
 
         return {"status": "ok", "result": result}
     except Exception as e:

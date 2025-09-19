@@ -62,18 +62,6 @@ services:
       - db
       - rabbitmq
 
-  instagram_human_scanner_consumer:
-    image: tonylukin/telegram_ai:human_scanner_bot
-    build:
-      context: .
-      dockerfile: human_scanner_bot.dockerfile
-    env_file:
-      - .env
-    command: python3 app/consumers/instagram_human_scanner_consumer.py
-    depends_on:
-      - db
-      - rabbitmq
-
   tiktok_human_scanner_consumer:
     image: tonylukin/telegram_ai:human_scanner_bot
     build:
@@ -82,6 +70,18 @@ services:
     env_file:
       - .env
     command: python3 app/consumers/tiktok_human_scanner_consumer.py
+    depends_on:
+      - db
+      - rabbitmq
+
+  instagram_human_scanner_consumer:
+    image: tonylukin/telegram_ai:human_scanner_bot
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    env_file:
+      - .env
+    command: python3 app/consumers/instagram_human_scanner_consumer.py
     depends_on:
       - db
       - rabbitmq

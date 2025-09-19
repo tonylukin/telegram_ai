@@ -13,8 +13,9 @@ handlers = [logging.StreamHandler()]
 if ENV == "prod":
     handlers.append(RotatingFileHandler(os.path.join(LOG_DIR, LOG_FILE), maxBytes=10_000_000, backupCount=5))
 
+log_level = logging.ERROR if ENV == "prod" else logging.INFO
 logging.basicConfig(
-    level=logging.INFO,
+    level=log_level,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=handlers
 )
