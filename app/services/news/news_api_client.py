@@ -21,4 +21,4 @@ class NewsApiClient(NewsMakerBase):
         url = f"{self.__HOST}/v2/everything?apiKey={NEWS_API_ORG_API_KEY}&q=война&sortBy=publishedAt&pageSize={count}&page=1"
         response = requests.get(url)
         data = response.json()
-        return [NewsItem(text=newsData['description']) for newsData in data["articles"]]
+        return [NewsItem(title=newsData['title'], url=newsData['url']) for newsData in data["articles"]]

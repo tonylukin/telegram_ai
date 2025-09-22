@@ -13,4 +13,4 @@ class TgUserInvitedSchema(BaseModel):
     bot: BotSchema | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

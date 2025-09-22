@@ -9,31 +9,31 @@ from telethon.tl.types import Channel, PeerChannel, Message, MessageService
 from app.config import AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
 from app.configs.logger import logging
 from app.db.queries.bot_comment import get_channel_comments
-from app.dependencies import get_db
+from app.dependencies import get_db, get_ai_client
 from app.models.bot_comment import BotComment
+from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
 from app.services.telegram.helpers import join_chats
-from app.services.text_maker import TextMakerDependencyConfig
 
 
 class AssignedChannelsMessenger:
     def __init__(
             self,
             clients_creator: ClientsCreator = Depends(),
-            config: TextMakerDependencyConfig = Depends(TextMakerDependencyConfig),
+            ai_client: AiClientBase = Depends(get_ai_client),
             session: Session = Depends(get_db)
     ):
-        self.clients = []
-        self.clients_creator = clients_creator
-        self.ai_client = config.ai_client
-        self.session = session
-        self.chat_names = None
-        self.message = None
+        self._clients = []
+        self._clients_creator = clients_creator
+        self._ai_client = ai_client
+        self._session = session
+        self._chat_names = None
+        self._message = None
 
     async def send_messages_to_assigned_channels(self, message: str = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
-        bot_clients = self.clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment())
-        self.message = message
-        self.chat_names = names
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment())
+        self._message = message
+        self._chat_names = names
 
         return await asyncio.gather(
             *(self.__start_client(client) for client in bot_clients)
@@ -41,19 +41,19 @@ class AssignedChannelsMessenger:
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client, task_name='send_messages_to_assigned_channels')
+        await self._clients_creator.start_client(bot_client, task_name='send_messages_to_assigned_channels')
         logging.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot
         result = {}
 
-        if self.chat_names is not None:
-            await join_chats(client, self.chat_names)
+        if self._chat_names is not None:
+            await join_chats(client, self._chat_names)
 
         async for dialog in client.iter_dialogs():
             chat = dialog.entity
 
-            if self.chat_names is not None and chat.username not in self.chat_names:
+            if self._chat_names is not None and chat.username not in self._chat_names:
                 continue
 
             if not isinstance(chat, Channel):
@@ -62,7 +62,7 @@ class AssignedChannelsMessenger:
                 logging.info(f"{chat.title} is not a channel")
                 continue
 
-            comments = get_channel_comments(self.session, channel=chat.title)
+            comments = get_channel_comments(self._session, channel=chat.title)
             if comments:
                 logging.info(f"{chat.title}: has recent comments, skipping")
                 continue
@@ -86,11 +86,11 @@ class AssignedChannelsMessenger:
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_chat_id)
 
-                    if self.message is None:
+                    if self._message is None:
                         prompt = AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE.format(post=discussion.messages[0].message)
                     else:
-                        prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self.message, post=discussion.messages[0].message)
-                    message = self.ai_client.generate_text(prompt=prompt)
+                        prompt = AI_POST_TEXT_TO_CHANNELS.format(text=self._message, post=discussion.messages[0].message)
+                    message = self._ai_client.generate_text(prompt=prompt)
                     await client.send_message(
                         entity=discussion_peer,
                         message=message,
@@ -104,7 +104,7 @@ class AssignedChannelsMessenger:
                         comment=message,
                         channel=chat.title,
                     )
-                    self.session.add(bot_comment)
+                    self._session.add(bot_comment)
                     await asyncio.sleep(random.choice(range(10, 15)))
 
                 except Exception as e:
@@ -113,12 +113,12 @@ class AssignedChannelsMessenger:
             except Exception as e:
                 logging.error(f"❌ Error in {chat.title}: {e}")
 
-        await self.clients_creator.disconnect_client(bot_client)
+        await self._clients_creator.disconnect_client(bot_client)
 
         try:
-            self.session.commit()
+            self._session.commit()
         except Exception as e:
-            self.session.rollback()
+            self._session.rollback()
             logging.error(e)
 
         logging.info(f"Messages sent: {result}")

@@ -14,4 +14,4 @@ class TgUserSchema(BaseModel):
     comments: list[TgUserCommentSchema] | None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
