@@ -69,49 +69,58 @@ class MessageReceiver:
         await self.clients_creator.start_client(bot_client, task_name='messages_check_and_reply')
         logger.info(f"{bot_client.get_name()} started")
 
-        dialogs = await client.get_dialogs()  # fetch all chats
+        try:
+            dialogs = await client.get_dialogs()  # fetch all chats
+        except Exception as e:
+            logger.error(f"[Check_and_reply] Cannot get dialogs: {e}")
+            dialogs = []
+
         replies = []
         for dialog in dialogs:
-            if not isinstance(dialog.entity, User) or dialog.entity.bot:
-                continue
-            chat_id = dialog.id
-
-            # Get last message in this dialog
-            messages = []
             try:
-                messages = await client.get_messages(chat_id, limit=10)
-            except Exception as e:
-                logger.error(f"Failed to get messages for {chat_id}: {e}")
-            if not messages:
-                continue
-            last_msg = messages[0]
+                if not isinstance(dialog.entity, User) or dialog.entity.bot:
+                    continue
+                chat_id = dialog.id
 
-            # Check if last message is incoming (from another user)
-            if last_msg.out or last_msg.sender.bot or last_msg.sender.deleted or (last_msg.sender.first_name == 'Telegram' and last_msg.sender.verified):
-                continue
+                # Get last message in this dialog
+                messages = []
+                try:
+                    messages = await client.get_messages(chat_id, limit=10)
+                except Exception as e:
+                    logger.error(f"Failed to get messages for {chat_id}: {e}")
+                if not messages:
+                    continue
+                last_msg = messages[0]
 
-            dialog_messages = ['- ' + message.message for message in messages if message.message]
-            logger.info(f"Dialog: {dialog_messages}")
-            try:
-                reply_text = self.ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
-                sender_name = get_name_from_user(last_msg.sender)
-                await client.send_message(chat_id, reply_text, reply_to=last_msg.id)
-                logger.info(f"Replied in chat {chat_id}")
-                replies.append([sender_name, last_msg.text, reply_text])
-                self.__save_bot_message_to_db(bot_id=bot_client.bot.id, sender_name=sender_name, text="\n".join(dialog_messages), reply_text=reply_text)
-            except errors.ChatWriteForbiddenError:
-                logger.error(f"Cannot send message to chat {chat_id} (write forbidden)")
-            except Exception as e:
-                logger.error(f"Cannot send message to chat {chat_id} ({e})")
+                # Check if last message is incoming (from another user)
+                if last_msg.out or last_msg.sender.bot or last_msg.sender.deleted or (last_msg.sender.first_name == 'Telegram' and last_msg.sender.verified):
+                    continue
 
-            try:
-                if promoting_channel_to_invite:
-                    await client(InviteToChannelRequest(
-                        channel=promoting_channel_to_invite,
-                        users=[last_msg.sender]
-                    ))
+                dialog_messages = ['- ' + message.message for message in messages if message.message]
+                logger.info(f"Dialog: {dialog_messages}")
+                try:
+                    reply_text = self.ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
+                    sender_name = get_name_from_user(last_msg.sender)
+                    await client.send_message(chat_id, reply_text, reply_to=last_msg.id)
+                    logger.info(f"Replied in chat {chat_id}")
+                    replies.append([sender_name, last_msg.text, reply_text])
+                    self.__save_bot_message_to_db(bot_id=bot_client.bot.id, sender_name=sender_name, text="\n".join(dialog_messages), reply_text=reply_text)
+                except errors.ChatWriteForbiddenError:
+                    logger.error(f"Cannot send message to chat {chat_id} (write forbidden)")
+                except Exception as e:
+                    logger.error(f"Cannot send message to chat {chat_id} ({e})")
+
+                try:
+                    if promoting_channel_to_invite:
+                        await client(InviteToChannelRequest(
+                            channel=promoting_channel_to_invite,
+                            users=[last_msg.sender]
+                        ))
+                except Exception as e:
+                    logger.error(f"Cannot invite user {last_msg.sender.username} to channel {promoting_channel} ({e})")
+
             except Exception as e:
-                logger.error(f"Cannot invite user {last_msg.sender.username} to channel {promoting_channel} ({e})")
+                logger.error(f"[Check_and_reply] Common error: {e}")
 
         await self.clients_creator.disconnect_client(bot_client)
         return {bot_client.get_name(): replies}

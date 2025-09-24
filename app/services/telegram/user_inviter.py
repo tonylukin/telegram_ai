@@ -8,7 +8,7 @@ from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel, User
 
 from app.config import TELEGRAM_CHATS_TO_INVITE_FROM, TELEGRAM_CHATS_TO_INVITE_TO, USER_INVITER_MAX_USERS
-from app.configs.logger import logging, logger
+from app.configs.logger import logger
 from app.db.queries.tg_user_invited import get_invited_users
 from app.dependencies import get_db
 from app.models.tg_user_invited import TgUserInvited
@@ -42,7 +42,7 @@ class UserInviter:
     async def __start_client(self, bot_client: BotClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
         client = bot_client.client
         await self.clients_creator.start_client(bot_client, task_name='invite_users_from_comments')
-        logging.info(f"{bot_client.get_name()} started")
+        logger.info(f"{bot_client.get_name()} started")
 
         bot = bot_client.bot
         random.shuffle(channels)
@@ -66,14 +66,14 @@ class UserInviter:
                     try:
                         messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count * 3)
                     except Exception as e:
-                        logger.error(f"Error {channel} [{linked_chat_id}]: {e}")
+                        logger.error(f"[{bot_client.get_name()}] Error {channel} [{linked_chat_id}]: {e}")
                         continue
                     channel_entities[channel] = await client.get_entity(linked_chat_id)
                 else:
                     messages_by_channel[channel] = await client.get_messages(channel, limit=count * 3)
                     channel_entities[channel] = channel_entity
             except Exception as e:
-                logging.error(f"⚠️ Error getting channel messages: {e}")
+                logger.error(f"⚠️ [{bot_client.get_name()}] Error getting channel messages: {e}")
 
         for channel, messages in messages_by_channel.items():
             for msg in messages:
@@ -106,10 +106,10 @@ class UserInviter:
                                 channel=target_channel,
                                 users=[user]
                             ))
-                            logging.info(f"✅ Invited {user.username or user.id}")
+                            logger.info(f"✅ Invited {user.username or user.id}")
                             invited += 1
                         except Exception as e:
-                            logging.info(f"❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
+                            logger.info(f"❌ [{bot_client.get_name()}] Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
                             continue
 
                         tg_user_invited = TgUserInvited(
@@ -122,7 +122,7 @@ class UserInviter:
                         self.session.add(tg_user_invited)
 
                 except Exception as e:
-                    logging.error(f"⚠️ Error getting discussion: {e}")
+                    logger.error(f"⚠️ [{bot_client.get_name()}] Error getting discussion: {e}")
 
         await self.clients_creator.disconnect_client(bot_client)
 
@@ -130,6 +130,6 @@ class UserInviter:
             self.session.commit()
         except Exception as e:
             self.session.rollback()
-            logging.error(e)
+            logger.error(e)
 
         return {bot_client.get_name(): invited}
