@@ -24,13 +24,13 @@ class MessageReceiver:
             ai_client: AiClientBase = Depends(get_ai_client),
             session: Session = Depends(get_db)
     ):
-        self.clients = []
-        self.clients_creator = clients_creator
-        self.ai_client = ai_client
-        self.session = session
+        self._clients = []
+        self._clients_creator = clients_creator
+        self._ai_client = ai_client
+        self._session = session
 
     async def check_and_reply(self, promoting_channel: str, promoting_channel_to_invite: str = None) -> list[dict[str, int]]:
-        bot_clients = self.clients_creator.create_clients_from_bots()
+        bot_clients = self._clients_creator.create_clients_from_bots()
         results = []
         for i in range(0, len(bot_clients), self.BATCH_SIZE):
             batch = bot_clients[i:i + self.BATCH_SIZE]
@@ -43,9 +43,9 @@ class MessageReceiver:
         return results
 
     async def get_new_messages_for_bot(self, bot_name: str):
-        bot_clients = self.clients_creator.create_clients_from_bots(names=[bot_name])
+        bot_clients = self._clients_creator.create_clients_from_bots(names=[bot_name])
         if not bot_clients:
-            raise RuntimeError(f'No clients found for {bot_name}')
+            raise RuntimeError(f'[MessageReceiver::get_new_messages_for_bot] No clients found for {bot_name}')
 
         client = bot_clients[0].client
 
@@ -55,24 +55,24 @@ class MessageReceiver:
                 return
             sender = await event.get_sender()
             sender_name = get_name_from_user(sender)
-            logger.info(f"[{sender_name} to {bot_clients[0].get_name()}] {event.text}")
+            logger.info(f"[MessageReceiver::get_new_messages_for_bot][{sender_name} to {bot_clients[0].get_name()}] {event.text}")
 
-        logger.info("Listening for messages...")
-        await self.clients_creator.start_client(bot_client=bot_clients[0], task_name='get_new_messages_for_bot')
+        logger.info("[MessageReceiver::get_new_messages_for_bot] Listening for messages...")
+        await self._clients_creator.start_client(bot_client=bot_clients[0], task_name='get_new_messages_for_bot')
         try:
             await client.run_until_disconnected()
         finally:
-            await self.clients_creator.disconnect_client(bot_clients[0])
+            await self._clients_creator.disconnect_client(bot_clients[0])
 
     async def __check_and_reply(self, bot_client: BotClient, promoting_channel: str, promoting_channel_to_invite: str | None) -> dict[str, list]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client, task_name='messages_check_and_reply')
-        logger.info(f"{bot_client.get_name()} started")
+        await self._clients_creator.start_client(bot_client, task_name='messages_check_and_reply')
+        logger.info(f"[Check_and_reply] {bot_client.get_name()} started")
 
         try:
             dialogs = await client.get_dialogs()  # fetch all chats
         except Exception as e:
-            logger.error(f"[Check_and_reply] Cannot get dialogs: {e}")
+            logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot get dialogs: {e}")
             dialogs = []
 
         replies = []
@@ -87,7 +87,7 @@ class MessageReceiver:
                 try:
                     messages = await client.get_messages(chat_id, limit=10)
                 except Exception as e:
-                    logger.error(f"Failed to get messages for {chat_id}: {e}")
+                    logger.error(f"[Check_and_reply][{bot_client.get_name()}] Failed to get messages for {chat_id}: {e}")
                 if not messages:
                     continue
                 last_msg = messages[0]
@@ -97,18 +97,18 @@ class MessageReceiver:
                     continue
 
                 dialog_messages = ['- ' + message.message for message in messages if message.message]
-                logger.info(f"Dialog: {dialog_messages}")
+                logger.info(f"[Check_and_reply][{bot_client.get_name()}] Dialog: {dialog_messages}")
                 try:
-                    reply_text = self.ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
+                    reply_text = self._ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
                     sender_name = get_name_from_user(last_msg.sender)
                     await client.send_message(chat_id, reply_text, reply_to=last_msg.id)
-                    logger.info(f"Replied in chat {chat_id}")
+                    logger.info(f"[Check_and_reply][{bot_client.get_name()}] Replied in chat {chat_id}")
                     replies.append([sender_name, last_msg.text, reply_text])
                     self.__save_bot_message_to_db(bot_id=bot_client.bot.id, sender_name=sender_name, text="\n".join(dialog_messages), reply_text=reply_text)
                 except errors.ChatWriteForbiddenError:
-                    logger.error(f"Cannot send message to chat {chat_id} (write forbidden)")
+                    logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot send message to chat {chat_id} (write forbidden)")
                 except Exception as e:
-                    logger.error(f"Cannot send message to chat {chat_id} ({e})")
+                    logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot send message to chat {chat_id} ({e})")
 
                 try:
                     if promoting_channel_to_invite:
@@ -117,12 +117,12 @@ class MessageReceiver:
                             users=[last_msg.sender]
                         ))
                 except Exception as e:
-                    logger.error(f"Cannot invite user {last_msg.sender.username} to channel {promoting_channel} ({e})")
+                    logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot invite user {last_msg.sender.username} to channel {promoting_channel} ({e})")
 
             except Exception as e:
-                logger.error(f"[Check_and_reply] Common error: {e}")
+                logger.error(f"[Check_and_reply][{bot_client.get_name()}] Common error: {e}")
 
-        await self.clients_creator.disconnect_client(bot_client)
+        await self._clients_creator.disconnect_client(bot_client)
         return {bot_client.get_name(): replies}
 
     def __save_bot_message_to_db(self, bot_id: int, sender_name: str, text: str, reply_text: str) -> TgBotMessage | None:
@@ -133,11 +133,11 @@ class MessageReceiver:
                 text=text,
                 reply_text=reply_text
             )
-            self.session.add(message)
-            self.session.commit()
+            self._session.add(message)
+            self._session.commit()
         except Exception as e:
-            self.session.rollback()
-            logger.error(f"Error saving TgBotMessage: {e}")
+            self._session.rollback()
+            logger.error(f"[Check_and_reply][#{bot_id}] Error saving TgBotMessage: {e}")
             return None
 
         return message
