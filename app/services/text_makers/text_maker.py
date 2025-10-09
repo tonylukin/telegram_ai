@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, \
     AI_MASS_NEWS_POST_TEXT, AI_NEWS_EMOTIONS, AI_MASS_NEWS_POST_IMAGE
-from app.configs.logger import logging
+from app.configs.logger import logger
 from app.dependencies import get_db, get_ai_client, get_ai_client_images, get_news_maker
 from app.models.news_post import NewsPost
 from app.services.ai.ai_client_base import AiClientBase
@@ -50,7 +50,7 @@ class TextMaker:
             news_text = news.get('text')
             external_id = TextMaker.__generate_external_id(news_text)
             if self.__get_post_by_external_id(external_id) is not None:
-                logging.info(f'Skipping {news_text} \'{external_id}\' exists')
+                logger.info(f'[TextMaker::Narrator] Skipping {news_text} \'{external_id}\' exists')
                 continue
 
             by_person = person or random.choice(self._persons)
@@ -61,7 +61,7 @@ class TextMaker:
                 if 1 >= IMAGE_CREATION_PROBABILITY >= random.random():
                     image = self._ai_client_images.generate_image(AI_NEWS_POST_IMAGE.format(news_text=news_text, by_person=by_person))
             except Exception as e:
-                logging.error(f'Skipping news {news_text}, error: {e}')
+                logger.error(f'[TextMaker::Narrator] Skipping news {news_text}, error: {e}')
                 continue
             response = Response(original=news_text, generated=text, person=by_person, image=image, emotion=emotion)
             response_list.append(response)
@@ -81,6 +81,9 @@ class TextMaker:
                     filter(is_new_news_item, news_list)
                 )
             )
+            if not news_texts:
+                return []
+
             by_person = person or random.choice(self._persons)
             emotion = random.choice(AI_NEWS_EMOTIONS)
             text = self._ai_client.generate_text(
@@ -95,9 +98,9 @@ class TextMaker:
             original = '\n\n'.join(news_texts)
             external_id = TextMaker.__generate_external_id(original)
             if self.__get_post_by_external_id(external_id) is not None:
-                logging.info(f'Skipping {text} \'{external_id}\' exists')
+                logger.info(f'[TextMaker::Narrator] Skipping {text} \'{external_id}\' exists')
         except Exception as e:
-            logging.error(e)
+            logger.error(f'[TextMaker::Narrator] Error: {e}')
             return []
 
         response = Response(generated=text, person=by_person, original=original, image=image, emotion=emotion)
@@ -123,4 +126,4 @@ class TextMaker:
             self._session.commit()
         except Exception as e:
             self._session.rollback()
-            logging.error(e)
+            logger.error(f'[TextMaker::Narrator] Saving to db error: {e}')

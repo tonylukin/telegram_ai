@@ -1,7 +1,8 @@
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, func, Index
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
+
 from app.models.base import Base
+
 
 class BotComment(Base):
     __tablename__ = "bot_comments"

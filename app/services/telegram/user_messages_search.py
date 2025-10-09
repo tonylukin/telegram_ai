@@ -4,11 +4,12 @@ from typing import TypedDict
 from telethon import TelegramClient
 from telethon.tl.custom.message import Message
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
-from telethon.tl.types import PeerChannel, MessagePeerReaction, PeerUser, User, Chat, Channel
+from telethon.tl.types import PeerChannel, PeerUser, User, Chat, Channel
 
-from app.configs.logger import logging
+from app.config import is_dev
+from app.configs.logger import logger
 from app.services.telegram.helpers import get_instance_by_username
-from app.config import ENV
+
 
 class ChatMessages(TypedDict):
     chat: Chat | Channel
@@ -33,8 +34,10 @@ class UserMessagesSearch:
         return messages
 
     @staticmethod
-    async def get_user_messages_from_chats(client: TelegramClient, chats: list[str], username: str, limit: int = 50) -> list[ChatMessages]:
-        user = await get_instance_by_username(client, username)  # assume this returns a User or int
+    async def get_user_messages_from_chats(client: TelegramClient, chats: list[str], username: str = None, limit: int = 50) -> list[ChatMessages]:
+        user = None
+        if username:
+            user = await get_instance_by_username(client, username)  # assume this returns a User or int
         messages_by_chat = []
         chats = list(set(chats))
 
@@ -42,7 +45,7 @@ class UserMessagesSearch:
             try:
                 chat_entity = await get_instance_by_username(client, chat)
                 messages = []
-                async for msg in client.iter_messages(chat_entity, from_user=user.id, limit=limit):
+                async for msg in client.iter_messages(chat_entity, from_user=user.id if user else None, limit=limit):
                     if isinstance(msg, Message):
                         messages.append(msg)
                 messages_by_chat.append({
@@ -50,7 +53,7 @@ class UserMessagesSearch:
                     'messages': messages,
                 })
             except Exception as e:
-                logging.error(f"Error accessing chat {chat}: {e}")
+                logger.error(f"[UserMessagesSearch::get_user_messages_from_chats][{client.session.filename}] Error accessing chat {chat}: {e}")
 
         return messages_by_chat
 
@@ -70,7 +73,7 @@ class UserMessagesSearch:
                 if isinstance(posts, Message):
                     posts = [posts]
             except Exception as e:
-                logging.error(f"Error getting info for {channel_username}: {e}")
+                logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] Error getting info for {channel_username}: {e}")
                 continue
 
             comments = set()
@@ -97,8 +100,8 @@ class UserMessagesSearch:
                             msg_id=post.id
                         ))
                     except Exception as e:
-                        if ENV == 'dev':
-                            logging.error(f"⚠️ Linked discussion group error {post.id}: {e}")
+                        if is_dev():
+                            logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] ⚠️ Linked discussion group error {post.id}: {e}")
                         continue
 
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
@@ -117,11 +120,11 @@ class UserMessagesSearch:
                     #                 reactions.add(f"Reaction {reaction.reaction.emoticon} on post {msg.message}")
 
                 except ValueError as e:
-                    if ENV == 'dev':
-                        logging.error(f"⚠️ Value error: {e}")
+                    if is_dev():
+                        logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] ⚠️ Value error: {e}")
                     continue
                 except Exception as e:
-                    logging.error(f"⚠️ Skipping post {post.id}: {e}")
+                    logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] ⚠️ Skipping post {post.id}: {e}")
                     continue
 
             if comments or reactions:
@@ -131,3 +134,7 @@ class UserMessagesSearch:
                 }
 
         return result
+
+    @staticmethod
+    async def get_last_messages_from_chats(client: TelegramClient, chats: list[str], limit: int = 50) -> list[ChatMessages]:
+        return await UserMessagesSearch.get_user_messages_from_chats(client=client, chats=chats, limit=limit)

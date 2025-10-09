@@ -48,6 +48,7 @@ class MessageReceiver:
             raise RuntimeError(f'[MessageReceiver::get_new_messages_for_bot] No clients found for {bot_name}')
 
         client = bot_clients[0].client
+        logger.info(f'[MessageReceiver::get_new_messages_for_bot][{bot_name}] Listening for bot messages')
 
         @client.on(events.NewMessage)
         async def handler(event):

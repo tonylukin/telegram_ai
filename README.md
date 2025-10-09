@@ -96,6 +96,14 @@ curl -X 'POST' 'http://127.0.0.1:8000/user-info/ig-collect' \
      -d '{"username": ""}'
 ```
 
+### Generate leads from channels
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/leads/from-channels' \
+     -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
+     -d '{"chats": "", "condition": "", "answers": [""]}'
+```
+
 ### Killing fastAPI debugger
 ```bash
 lsof -i tcp:8000

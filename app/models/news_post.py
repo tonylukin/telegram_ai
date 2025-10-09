@@ -1,5 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, DateTime, func
+
 from app.models.base import Base
+
 
 class NewsPost(Base):
     __tablename__ = "news_posts"

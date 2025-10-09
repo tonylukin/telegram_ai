@@ -1,5 +1,5 @@
-import sqlite3
 import asyncio
+import sqlite3
 from datetime import datetime
 from typing import List
 
@@ -12,21 +12,22 @@ from app.db.queries.bot import get_bots
 from app.dependencies import get_db
 from app.models.bot import Bot
 
+
 class BotClient:
     def __init__(self, client: TelegramClient, bot: Bot):
-        self.client = client
-        self.bot = bot
-        self.bot_name = bot.name
+        self.client: TelegramClient = client
+        self.bot: Bot = bot
+        self._bot_name: str = bot.name
 
-    def get_name(self):
-        return self.bot_name
+    def get_name(self) -> str:
+        return self._bot_name
 
 class ClientsCreator:
     def __init__(self, session: Session = Depends(get_db)):
-        self.session = session
+        self._session = session
 
     def create_clients_from_bots(self, roles: list[str] = None, names: list[str] = None, limit: int = None) -> List[BotClient]:
-        bots = get_bots(session=self.session, roles=roles, names=names, limit=limit)
+        bots = get_bots(session=self._session, roles=roles, names=names, limit=limit)
         clients = []
         for bot in bots:
             api_id = bot.app_id
@@ -42,12 +43,12 @@ class ClientsCreator:
             bot_client.bot.status = Bot.STATUS_BUSY
             bot_client.bot.started_at = datetime.now()
             bot_client.bot.task_name = task_name
-            self.session.flush()
+            self._session.flush()
             if not bot_client.client.is_connected():
                 await bot_client.client.start()
 
         except Exception as e:
-            logger.error(f"Could not start client [{bot_client.get_name()}] {e}")
+            logger.error(f"[{bot_client.get_name()}] Could not start client {e}")
             if bot_client.client.is_connected():
                 await bot_client.client.disconnect()
             raise RuntimeError("Could not start client")
@@ -61,11 +62,11 @@ class ClientsCreator:
                     bot_client.bot.status = None
                     bot_client.bot.started_at = None
                     bot_client.bot.task_name = None
-                    self.session.flush()
+                    self._session.flush()
 
                 break
             except sqlite3.OperationalError as e:
-                logger.error(f"Could not disconnect client {e}")
+                logger.error(f"[{bot_client.get_name()}] Could not disconnect client {e}")
                 await asyncio.sleep(2)
         else:
             raise RuntimeError("Could not disconnect client after retries")

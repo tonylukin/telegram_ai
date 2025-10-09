@@ -1,14 +1,13 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
+from telethon.errors import RPCError, AuthKeyUnregisteredError, UserDeactivatedBanError, UserDeactivatedError, \
+    ChatWriteForbiddenError, UserBannedInChannelError, FloodWaitError, ChatAdminRequiredError
 
 from app.config import TG_TEST_GROUP
 from app.configs.logger import logger
 from app.dependencies import get_db
 from app.models.bot import Bot
 from app.services.telegram.clients_creator import ClientsCreator
-from telethon.errors import RPCError, AuthKeyUnregisteredError, UserDeactivatedBanError, UserDeactivatedError, \
-    ChatWriteForbiddenError, UserBannedInChannelError, FloodWaitError, ChatAdminRequiredError
-
 from app.services.telegram.helpers import join_chats
 
 
@@ -29,6 +28,7 @@ class BotHealthChecker:
             result = 'active'
 
             try:
+                logger.info(f'Starting bot {bot_client.get_name()}')
                 await self._clients_creator.start_client(bot_client)
                 me = await client.get_me()
                 await client.send_message(me, "Test message (ignore) ✅")

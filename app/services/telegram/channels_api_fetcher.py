@@ -1,12 +1,10 @@
 import requests
 from telethon import TelegramClient
 from telethon.errors import ChannelPrivateError, UserNotParticipantError
-from telethon.tl.functions.channels import GetFullChannelRequest, GetParticipantRequest, JoinChannelRequest
 
 from app.config import TELEMETR_API_KEY
 from app.configs.logger import logger
 from app.services.telegram.chat_searcher import ChatSearcher
-from app.services.telegram.helpers import is_user_in_group
 
 PAGE_SIZE = 30
 

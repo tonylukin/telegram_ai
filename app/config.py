@@ -9,6 +9,9 @@ ENV = os.getenv("ENV", "dev")
 def is_prod():
     return ENV == "prod"
 
+def is_dev():
+    return ENV == "dev"
+
 APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DATABASE_URL = os.getenv("DATABASE_URL")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -86,3 +89,4 @@ MESSAGE_RECEIVER_PROMPT = config['MESSAGE_RECEIVER_PROMPT']
 BULLYING_MESSAGE_PROMPT = config['BULLYING_MESSAGE_PROMPT']
 TIKTOK_AI_USER_INFO_PROFILE_PROMPT_RU = config['TIKTOK_AI_USER_INFO_PROFILE_PROMPT_RU']
 TIKTOK_AI_USER_INFO_PROFILE_PROMPT_EN = config['TIKTOK_AI_USER_INFO_PROFILE_PROMPT_EN']
+GENERATOR_FROM_CHANNEL_AI_PROMPT = config['GENERATOR_FROM_CHANNEL_AI_PROMPT']

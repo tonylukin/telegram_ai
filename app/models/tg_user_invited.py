@@ -1,9 +1,10 @@
 from sqlalchemy import (
-    Column, BigInteger, Integer, String, Text, DateTime, ForeignKey, Index, UniqueConstraint, func
+    Column, BigInteger, Integer, String, DateTime, ForeignKey, UniqueConstraint, func
 )
 from sqlalchemy.orm import relationship
 
 from app.models.base import Base
+
 
 class TgUserInvited(Base):
     __tablename__ = "tg_users_invited"

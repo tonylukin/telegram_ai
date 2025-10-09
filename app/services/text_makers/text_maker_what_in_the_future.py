@@ -37,5 +37,5 @@ class TextMakerWhatInTheFuture:
 
             return Response(original=original_text, generated=generated_text)
         except Exception as e:
-            logger.error(f'WHAT_IN_FUTURE: Skipping news, error: {e}')
+            logger.error(f'[TextMaker::What_in_the_future] Skipping news, error: {e}')
             return None

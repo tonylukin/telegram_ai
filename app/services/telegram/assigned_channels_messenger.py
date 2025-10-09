@@ -7,7 +7,7 @@ from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import Channel, PeerChannel, Message, MessageService
 
 from app.config import AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
-from app.configs.logger import logging
+from app.configs.logger import logger
 from app.db.queries.bot_comment import get_channel_comments
 from app.dependencies import get_db, get_ai_client
 from app.models.bot_comment import BotComment
@@ -42,7 +42,7 @@ class AssignedChannelsMessenger:
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
         await self._clients_creator.start_client(bot_client, task_name='send_messages_to_assigned_channels')
-        logging.info(f"{bot_client.get_name()} started")
+        logger.info(f"[AssignedChannelsMessenger] {bot_client.get_name()} started")
 
         bot = bot_client.bot
         result = {}
@@ -59,12 +59,12 @@ class AssignedChannelsMessenger:
             if not isinstance(chat, Channel):
                 continue
             if not chat.broadcast:
-                logging.info(f"{chat.title} is not a channel")
+                logger.info(f"[AssignedChannelsMessenger][{bot_client.get_name()}] {chat.title} is not a channel")
                 continue
 
             comments = get_channel_comments(self._session, channel=chat.title)
             if comments:
-                logging.info(f"{chat.title}: has recent comments, skipping")
+                logger.info(f"[AssignedChannelsMessenger][{bot_client.get_name()}] {chat.title}: has recent comments, skipping")
                 continue
 
             try:
@@ -75,7 +75,7 @@ class AssignedChannelsMessenger:
                     continue
 
                 last_post = posts[0]
-                logging.info(f"Last post in {chat.title} is message ID {last_post.message[:10]}...")
+                logger.info(f"[AssignedChannelsMessenger][{bot_client.get_name()}] Last post in {chat.title} is message ID {last_post.message[:10]}...")
 
                 try:
                     discussion = await client(GetDiscussionMessageRequest(
@@ -96,7 +96,7 @@ class AssignedChannelsMessenger:
                         message=message,
                         reply_to=discussion.messages[0].id
                     )
-                    logging.info(f"✅ Commented on discussion {discussion.messages[0].message[:10]}... for {chat.title}")
+                    logger.info(f"[AssignedChannelsMessenger][{bot_client.get_name()}] ✅ Commented on discussion {discussion.messages[0].message[:10]}... for {chat.title}")
 
                     result[chat.title] = 1
                     bot_comment = BotComment(
@@ -108,10 +108,10 @@ class AssignedChannelsMessenger:
                     await asyncio.sleep(random.choice(range(10, 15)))
 
                 except Exception as e:
-                    logging.warning(f"⚠️ No discussion thread for message {last_post.id} in {chat.title}: {e}")
+                    logger.warning(f"[AssignedChannelsMessenger][{bot_client.get_name()}] ⚠️ No discussion thread for message {last_post.id} in {chat.title}: {e}")
 
             except Exception as e:
-                logging.error(f"❌ Error in {chat.title}: {e}")
+                logger.error(f"[AssignedChannelsMessenger][{bot_client.get_name()}] ❌ Error in {chat.title}: {e}")
 
         await self._clients_creator.disconnect_client(bot_client)
 
@@ -119,7 +119,7 @@ class AssignedChannelsMessenger:
             self._session.commit()
         except Exception as e:
             self._session.rollback()
-            logging.error(e)
+            logger.error(f'[AssignedChannelsMessenger][{bot_client.get_name()}] Saving to db error: {e}')
 
-        logging.info(f"Messages sent: {result}")
+        logger.info(f"[AssignedChannelsMessenger][{bot_client.get_name()}] Messages sent: {result}")
         return {bot_client.get_name(): result}

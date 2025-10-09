@@ -1,7 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, func, Index, JSON, ARRAY
+from sqlalchemy import Column, Integer, String, DateTime, func, Index, ARRAY
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import relationship
+
 from app.models.base import Base
+
 
 class Bot(Base):
     ROLE_SUPER_ADMIN = 'super_admin'
@@ -9,6 +11,7 @@ class Bot(Base):
     ROLE_INVITE = 'invite'
     ROLE_REACT = 'react'
     ROLE_HUMAN_SCANNER = 'human_scanner'
+    ROLE_LEAD_FROM_CHANNEL = 'lead_from_channel'
 
     STATUS_BUSY = 'busy'
 

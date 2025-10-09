@@ -3,7 +3,7 @@ import random
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
-from telethon.tl.functions.channels import InviteToChannelRequest, GetFullChannelRequest
+from telethon.tl.functions.channels import InviteToChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel, User
 
@@ -21,13 +21,13 @@ class UserInviter:
     DELAY_RANGE = (10, 20)
 
     def __init__(self, clients_creator: ClientsCreator = Depends(), session: Session = Depends(get_db)):
-        self.clients_creator = clients_creator
-        self.clients = []
-        self.invitedUsers = set()
-        self.session = session
+        self._clients_creator = clients_creator
+        self._clients = []
+        self._invited_users = set()
+        self._session = session
 
     async def invite_users_from_comments(self,  source_channels: list[str] = None, target_channels: list[str] = None, count: int = None) -> list[dict[str, int]]:
-        bot_clients = self.clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
         if count is None:
             count = USER_INVITER_MAX_USERS
         if source_channels is None:
@@ -41,8 +41,8 @@ class UserInviter:
 
     async def __start_client(self, bot_client: BotClient, channels: list[str], target_channels: list[str], count: int) -> dict[str, int]:
         client = bot_client.client
-        await self.clients_creator.start_client(bot_client, task_name='invite_users_from_comments')
-        logger.info(f"{bot_client.get_name()} started")
+        await self._clients_creator.start_client(bot_client, task_name='invite_users_from_comments')
+        logger.info(f"[UserInviter][{bot_client.get_name()}] Bot started")
 
         bot = bot_client.bot
         random.shuffle(channels)
@@ -50,7 +50,7 @@ class UserInviter:
 
         target_channel = random.choice(target_channels)
         if not target_channel:
-            logger.error('No target channel')
+            logger.error(f'[UserInviter][{bot_client.get_name()}] No target channel')
             return {}
 
         invited = 0
@@ -66,14 +66,14 @@ class UserInviter:
                     try:
                         messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count * 3)
                     except Exception as e:
-                        logger.error(f"[{bot_client.get_name()}] Error {channel} [{linked_chat_id}]: {e}")
+                        logger.error(f"[UserInviter][{bot_client.get_name()}]  Error {channel} [{linked_chat_id}]: {e}")
                         continue
                     channel_entities[channel] = await client.get_entity(linked_chat_id)
                 else:
                     messages_by_channel[channel] = await client.get_messages(channel, limit=count * 3)
                     channel_entities[channel] = channel_entity
             except Exception as e:
-                logger.error(f"⚠️ [{bot_client.get_name()}] Error getting channel messages: {e}")
+                logger.error(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting channel messages: {e}")
 
         for channel, messages in messages_by_channel.items():
             for msg in messages:
@@ -95,10 +95,10 @@ class UserInviter:
                             user = await client.get_entity(comment.sender_id)
                         except Exception:
                             continue
-                        invited_user = get_invited_users(self.session, tg_user_id=user.id, channel=target_channel)
-                        if not isinstance(user, User) or user.is_self or user.deleted or user.scam or user.bot or invited >= count or user.id in self.invitedUsers or invited_user is not None:
+                        invited_user = get_invited_users(self._session, tg_user_id=user.id, channel=target_channel)
+                        if not isinstance(user, User) or user.is_self or user.deleted or user.scam or user.bot or invited >= count or user.id in self._invited_users or invited_user is not None:
                             continue
-                        self.invitedUsers.add(user.id)
+                        self._invited_users.add(user.id)
 
                         try:
                             await asyncio.sleep(random.randint(*self.DELAY_RANGE))
@@ -106,10 +106,10 @@ class UserInviter:
                                 channel=target_channel,
                                 users=[user]
                             ))
-                            logger.info(f"✅ Invited {user.username or user.id}")
+                            logger.info(f"[UserInviter][{bot_client.get_name()}] ✅ Invited {user.username or user.id}")
                             invited += 1
                         except Exception as e:
-                            logger.info(f"❌ [{bot_client.get_name()}] Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
+                            logger.info(f"[UserInviter][{bot_client.get_name()}] ❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
                             continue
 
                         tg_user_invited = TgUserInvited(
@@ -119,17 +119,17 @@ class UserInviter:
                             channel_from=channel,
                             bot_id=bot.id,
                         )
-                        self.session.add(tg_user_invited)
+                        self._session.add(tg_user_invited)
 
                 except Exception as e:
-                    logger.error(f"⚠️ [{bot_client.get_name()}] Error getting discussion: {e}")
+                    logger.error(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting discussion: {e}")
 
-        await self.clients_creator.disconnect_client(bot_client)
+        await self._clients_creator.disconnect_client(bot_client)
 
         try:
-            self.session.commit()
+            self._session.commit()
         except Exception as e:
-            self.session.rollback()
-            logger.error(e)
+            self._session.rollback()
+            logger.error(f'[UserInviter][{bot_client.get_name()}] Error saving to db: {e}')
 
         return {bot_client.get_name(): invited}

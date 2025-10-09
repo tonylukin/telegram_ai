@@ -1,17 +1,16 @@
 import asyncio
-import random
-import os
 import csv
+import os
+import random
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
-from telethon import TelegramClient
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import Channel, PeerChannel
 
 from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
-from app.configs.logger import logging, logger
+from app.configs.logger import logger
 from app.db.queries.bot_comment import get_bot_comments
 from app.dependencies import get_db, get_ai_client
 from app.models.bot_comment import BotComment
@@ -39,18 +38,19 @@ class ChatMessenger:
         self._messages = None
 
     @staticmethod
-    async def send_message(client: TelegramClient, chat: Channel | PeerChannel, message: str, reply_to_post_id: int | None) -> bool:
+    async def send_message(bot_client: BotClient, chat: Channel | PeerChannel, message: str, reply_to_post_id: int | None) -> bool:
         try:
+            client = bot_client.client
             entity = await client.get_entity(chat)
             await client.send_message(
                 entity=entity,
                 message=message,
                 reply_to=reply_to_post_id
             )
-            logging.info(f"✅ Sent message to {chat.title}")
+            logger.info(f"[ChatMessenger::send_message][{bot_client.get_name()}] ✅ Sent message to {chat.title}")
             return True
         except Exception as e:
-            logging.error(f"❌ Failed to send message to {chat.title}: {e}")
+            logger.error(f"[ChatMessenger::send_message][{bot_client.get_name()}] ❌ Failed to send message to {chat.title}: {e}")
             return False
 
     async def send_messages_to_chats_by_names(self, messages: list[str] = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
@@ -74,7 +74,7 @@ class ChatMessenger:
     async def __start_client(self, bot_client: BotClient, chat_names: list[str]) -> dict[str, dict[str, int]]:
         client = bot_client.client
         await self._clients_creator.start_client(bot_client, task_name='send_messages_to_chats_by_names')
-        logging.info(f"{bot_client.get_name()} started")
+        logger.info(f"[ChatMessenger::__start_client] {bot_client.get_name()} started")
 
         bot = bot_client.bot
 
@@ -84,7 +84,7 @@ class ChatMessenger:
             try:
                 chat = await client.get_entity(name)
                 if not isinstance(chat, Channel):
-                    logger.info(f"{name}: Not a Channel")
+                    logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] {name}: Not a Channel")
                     continue
 
                 last_messages = [message for message in await client.get_messages(chat.id, limit=10) if message.message]
@@ -115,20 +115,20 @@ class ChatMessenger:
                     post_texts[linked_chat.id] = (discussion_msg.message, discussion_msg.id)
 
             except Exception as e:
-                logging.error(f"ChatMessenger [{name}]: {e}")
+                logger.error(f"[ChatMessenger::__start_client][{bot_client.get_name()}] {name}: {e}")
 
         result = {}
         for chat in chats:
             try:
                 comments = get_bot_comments(self._session, channel=chat.title, bot=bot_client.bot)
                 if len(comments) > 0:
-                    logging.info(f"{chat.title}: {bot_client.get_name()} has recent comments")
+                    logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] {chat.title}: {bot_client.get_name()} has recent comments")
                     continue
                 # if await has_antispam_bot(chat=chat, client=client):
-                #     logging.info(f"{chat.title} has antispam bot")
+                #     logger.info(f"{chat.title} has antispam bot")
                 #     continue
                 if not await is_user_in_group(client, chat):
-                    logging.info(f"🚪 Not in chat. Joining {chat.title}")
+                    logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] 🚪 Not in chat. Joining {chat.title}")
                     await client(JoinChannelRequest(chat))
                     await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
@@ -138,7 +138,7 @@ class ChatMessenger:
                 else:
                     prompt = AI_POST_TEXT_TO_CHANNELS.format(text=random.choice(self._messages), post=post_text)
                 message = self._ai_client.generate_text(prompt)
-                if await self.send_message(client=client, chat=chat, message=message, reply_to_post_id=post_id):
+                if await self.send_message(bot_client=bot_client, chat=chat, message=message, reply_to_post_id=post_id):
                     result[chat.title] = 1
                     bot_comment = BotComment(
                         bot_id=bot.id,
@@ -149,7 +149,7 @@ class ChatMessenger:
 
                 await asyncio.sleep(random.choice(range(10, 15)))
             except Exception as e:
-                logging.error(f"ChatMessenger Error [{chat.title}]: {e}")
+                logger.error(f"[ChatMessenger::__start_client][{bot_client.get_name()}] Error [{chat.title}]: {e}")
 
         await self._clients_creator.disconnect_client(bot_client)
 
@@ -157,15 +157,15 @@ class ChatMessenger:
             self._session.commit()
         except Exception as e:
             self._session.rollback()
-            logging.error(e)
+            logger.error(f'[ChatMessenger::__start_client][{bot_client.get_name()}] Commit error {e}')
         result = {bot_client.get_name(): result}
-        logging.info(f"Messages sent: {result}")
+        logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] Messages sent: {result}")
         return result
 
     @staticmethod
     def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv', limit: int = 100) -> list[str]:
         if not os.path.exists(csv_path):
-            logger.info(f"{csv_path} doesn't exist")
+            logger.info(f"[ChatMessenger::__get_names_from_csv] {csv_path} doesn't exist")
             return []
 
         channels = []

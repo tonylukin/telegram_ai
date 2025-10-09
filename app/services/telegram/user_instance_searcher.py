@@ -1,11 +1,10 @@
 from fastapi.params import Depends
+from telethon.tl.types import Message, User, PeerChannel, Channel
 
 from app.configs.logger import logger
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import BotClient, ClientsCreator
 from app.services.telegram.helpers import resolve_tg_link, get_chat_from_channel, extract_username_or_name
-from telethon.tl.types import Message, User, PeerChannel, Channel
-
 
 
 class UserInstanceSearcher:
@@ -26,7 +25,7 @@ class UserInstanceSearcher:
                 chat = await resolve_tg_link(client, chat_name)
                 if chat is None:
                     found_channels = await self._chat_searcher.search_chats(client, chat_name)
-                    logger.info(f"Found channels [{len(found_channels)}] for {chat_name}")
+                    logger.info(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] Found channels [{len(found_channels)}] for {chat_name}")
                     channel_usernames.remove(chat_name)
                     if len(found_channels) == 0:
                         continue
@@ -35,11 +34,11 @@ class UserInstanceSearcher:
                     continue
 
                 if isinstance(chat, User):
-                    logger.info(f"'{chat.username}' is User instance")
+                    logger.info(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] '{chat.username}' is User instance")
                     channel_usernames.remove(chat_name)
                     continue
                 if not isinstance(chat, Channel):
-                    logger.info(f"Chat is instance of '{type(chat)}'")
+                    logger.info(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] Chat is instance of '{type(chat)}'")
                     channel_usernames.remove(chat_name)
                     continue
 
@@ -58,7 +57,7 @@ class UserInstanceSearcher:
                         channel_usernames.remove(chat.username)
                     channel_usernames.append(str(linked_chat_id))
             except Exception as e:
-                logger.error(f"Search for linked chats error {chat_name}: {e}")
+                logger.error(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] Search for linked chats error {chat_name}: {e}")
 
         username = extract_username_or_name(username)
         if username.startswith('@'):
@@ -66,7 +65,7 @@ class UserInstanceSearcher:
                 user = await client.get_entity(username)
             except Exception as e:
                 await self._clients_creator.disconnect_client(bot_client)
-                logger.error(f"User {username} not found: {e}")
+                logger.error(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] User {username} not found: {e}")
                 raise ValueError('User not found')
         else:
             user = None
@@ -81,11 +80,11 @@ class UserInstanceSearcher:
                             full_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip().lower()
                             if username.lower() in full_name or username.lower() in msg.message.lower():
                                 user = msg.sender
-                                logger.info(f"User found #{user.id} [{full_name}]")
+                                logger.info(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] User found #{user.id} [{full_name}]")
                                 break
                     if user:
                         break
                 except Exception as e:
-                    logger.error(f"⚠️ Search error {chat_name}")
+                    logger.error(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] ⚠️ Search error {chat_name}")
 
         return user

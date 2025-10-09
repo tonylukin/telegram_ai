@@ -1,9 +1,10 @@
 from sqlalchemy import (
-    Column, BigInteger, Integer, String, Text, DateTime, ForeignKey, Index, UniqueConstraint, func
+    Column, BigInteger, String, Text, DateTime, ForeignKey, Index, func
 )
 from sqlalchemy.orm import relationship
 
 from app.models.base import Base
+
 
 class TgUserComment(Base):
     __tablename__ = "tg_user_comments"

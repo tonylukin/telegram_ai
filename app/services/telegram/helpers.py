@@ -4,14 +4,13 @@ from urllib.parse import urlparse
 
 from telethon import TelegramClient
 from telethon.errors import UserAlreadyParticipantError, FloodWaitError, UserNotParticipantError, ChannelPrivateError
-from telethon.tl import TLObject
 from telethon.tl.functions.channels import JoinChannelRequest, GetFullChannelRequest, GetParticipantRequest, \
     GetParticipantsRequest, EditAdminRequest
 from telethon.tl.functions.messages import ImportChatInviteRequest
+from telethon.tl.types import Channel, Chat
 from telethon.tl.types import PeerChannel, ChannelParticipantsSearch, ChatAdminRights, \
     InputUser
 from telethon.types import User
-from telethon.tl.types import Channel, Chat
 
 from app.configs.logger import logger
 

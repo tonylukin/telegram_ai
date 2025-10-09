@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 
 from app.models.base import Base
 
+
 class TgBotMessage(Base):
     __tablename__ = "tg_bot_messages"
 

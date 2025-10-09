@@ -1,5 +1,7 @@
 from sqlalchemy import Column, BigInteger, String, JSON, DateTime, func
+
 from app.models.base import Base
+
 
 class TikTokUser(Base):
     __tablename__ = "tiktok_users"

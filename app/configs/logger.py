@@ -1,19 +1,17 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-from app.config import ENV
+from app.config import is_prod
 
 LOG_DIR = "logs"
 LOG_FILE = "fastapi.log"
 
-if ENV == "prod":
-    os.makedirs(LOG_DIR, exist_ok=True)
-
 handlers = [logging.StreamHandler()]
-if ENV == "prod":
+if is_prod():
+    os.makedirs(LOG_DIR, exist_ok=True)
     handlers.append(RotatingFileHandler(os.path.join(LOG_DIR, LOG_FILE), maxBytes=10_000_000, backupCount=5))
 
-log_level = logging.ERROR if ENV == "prod" else logging.INFO
+log_level = logging.ERROR if is_prod() else logging.INFO
 logging.basicConfig(
     level=log_level,
     format="%(asctime)s [%(levelname)s] %(message)s",
