@@ -49,6 +49,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
 
   human_scanner_consumer:
     image: tonylukin/telegram_ai:human_scanner_bot
@@ -88,3 +90,4 @@ services:
 
 volumes:
   pgdata:
+  rabbitmq_data:

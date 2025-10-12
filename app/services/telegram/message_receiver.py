@@ -56,7 +56,7 @@ class MessageReceiver:
                 return
             sender = await event.get_sender()
             sender_name = get_name_from_user(sender)
-            logger.info(f"[MessageReceiver::get_new_messages_for_bot][{sender_name} to {bot_clients[0].get_name()}] {event.text}")
+            print(f"[{sender_name} to {bot_clients[0].get_name()}] {event.text}")
 
         logger.info("[MessageReceiver::get_new_messages_for_bot] Listening for messages...")
         await self._clients_creator.start_client(bot_client=bot_clients[0], task_name='get_new_messages_for_bot')
@@ -109,7 +109,7 @@ class MessageReceiver:
                 except errors.ChatWriteForbiddenError:
                     logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot send message to chat {chat_id} (write forbidden)")
                 except Exception as e:
-                    logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot send message to chat {chat_id} ({e})")
+                    logger.warning(f"[Check_and_reply][{bot_client.get_name()}] Cannot send message to chat {chat_id} ({e})")
 
                 try:
                     if promoting_channel_to_invite:

@@ -95,7 +95,7 @@ async def join_chats(client: TelegramClient, chats_to_join: list[str]):
             logger.warning(f"⏳ Rate limited. Sleeping for {e.seconds} seconds")
             await asyncio.sleep(e.seconds)
         except Exception as e:
-            logger.error(f"❌ Error joining {link}: {e}")
+            logger.warning(f"❌ Error joining {link}: {e}")
 
 
 async def is_user_in_group(client: TelegramClient, chat: Channel|Chat) -> bool:

@@ -73,7 +73,7 @@ class UserInviter:
                     messages_by_channel[channel] = await client.get_messages(channel, limit=count * 3)
                     channel_entities[channel] = channel_entity
             except Exception as e:
-                logger.error(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting channel messages: {e}")
+                logger.warning(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting channel messages: {e}")
 
         for channel, messages in messages_by_channel.items():
             for msg in messages:
@@ -122,7 +122,7 @@ class UserInviter:
                         self._session.add(tg_user_invited)
 
                 except Exception as e:
-                    logger.error(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting discussion: {e}")
+                    logger.warning(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting discussion: {e}")
 
         await self._clients_creator.disconnect_client(bot_client)
 
