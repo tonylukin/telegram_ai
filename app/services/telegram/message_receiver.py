@@ -30,15 +30,19 @@ class MessageReceiver:
         self._session = session
 
     async def check_and_reply(self, promoting_channel: str, promoting_channel_to_invite: str = None) -> list[dict[str, int]]:
-        bot_clients = self._clients_creator.create_clients_from_bots()
         results = []
-        for i in range(0, len(bot_clients), self.BATCH_SIZE):
-            batch = bot_clients[i:i + self.BATCH_SIZE]
+        page = 0
+        while True:
+            offset = page * self.BATCH_SIZE
+            bot_clients = self._clients_creator.create_clients_from_bots(limit=self.BATCH_SIZE, offset=offset)
             batch_results = await asyncio.gather(
                 *(self.__check_and_reply(bot_client, promoting_channel, promoting_channel_to_invite) for bot_client in
-                  batch)
+                  bot_clients)
             )
             results.extend(batch_results)
+            page += 1
+            if len(bot_clients) < self.BATCH_SIZE:
+                break
 
         return results
 

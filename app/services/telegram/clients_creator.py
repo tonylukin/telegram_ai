@@ -26,8 +26,8 @@ class ClientsCreator:
     def __init__(self, session: Session = Depends(get_db)):
         self._session = session
 
-    def create_clients_from_bots(self, roles: list[str] = None, names: list[str] = None, limit: int = None) -> List[BotClient]:
-        bots = get_bots(session=self._session, roles=roles, names=names, limit=limit)
+    def create_clients_from_bots(self, roles: list[str] = None, names: list[str] = None, limit: int = None, offset: int = None) -> List[BotClient]:
+        bots = get_bots(session=self._session, roles=roles, names=names, limit=limit, offset=offset)
         clients = []
         for bot in bots:
             api_id = bot.app_id

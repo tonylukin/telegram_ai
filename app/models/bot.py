@@ -12,6 +12,7 @@ class Bot(Base):
     ROLE_REACT = 'react'
     ROLE_HUMAN_SCANNER = 'human_scanner'
     ROLE_LEAD_FROM_CHANNEL = 'lead_from_channel'
+    ROLE_HEALTH_CHECK = 'health_check'
 
     STATUS_BUSY = 'busy'
 

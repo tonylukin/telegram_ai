@@ -75,7 +75,7 @@ async def main():
         session.close()
         raise Exception("No client found")
 
-    all_bots_clients = clients_creator.create_clients_from_bots()
+    all_bots_clients = clients_creator.create_clients_from_bots() #todo use batches
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--set_bio", help="Set bio to all bots for promoting", required=False)

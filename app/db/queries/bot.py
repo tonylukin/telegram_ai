@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, VARCHAR
 
 from app.models.bot import Bot
 
-def get_bots(session: Session, roles: list[str] = None, names: list[str] = None, limit: int = None) -> list[Bot]:
+def get_bots(session: Session, roles: list[str] = None, names: list[str] = None, limit: int = None, offset: int = None) -> list[Bot]:
     query = session.query(Bot)
 
     if roles:
@@ -17,5 +17,8 @@ def get_bots(session: Session, roles: list[str] = None, names: list[str] = None,
 
     if limit:
         query = query.limit(limit)
+
+    if offset:
+        query = query.offset(offset)
 
     return query.all()
