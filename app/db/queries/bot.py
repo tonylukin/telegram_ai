@@ -13,12 +13,14 @@ def get_bots(session: Session, roles: list[str] = None, names: list[str] = None,
     if names:
         query = query.filter(Bot.name.in_(names))
 
-    query = query.filter(Bot.status.is_(None)).order_by(func.random())
+    query = query.filter(Bot.status.is_(None))
+
+    if offset:
+        query = query.order_by(Bot.id).offset(offset)
+    else:
+        query = query.order_by(func.random())
 
     if limit:
         query = query.limit(limit)
-
-    if offset:
-        query = query.offset(offset)
 
     return query.all()

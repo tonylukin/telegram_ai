@@ -50,7 +50,7 @@ class ChatMessenger:
             logger.info(f"[ChatMessenger::send_message][{bot_client.get_name()}] ✅ Sent message to {chat.title}")
             return True
         except Exception as e:
-            logger.error(f"[ChatMessenger::send_message][{bot_client.get_name()}] ❌ Failed to send message to {chat.title}: {e}")
+            logger.warning(f"[ChatMessenger::send_message][{bot_client.get_name()}] ❌ Failed to send message to {chat.title}: {e}")
             return False
 
     async def send_messages_to_chats_by_names(self, messages: list[str] = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
