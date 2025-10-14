@@ -19,9 +19,11 @@ from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
 from app.services.telegram.helpers import is_user_in_group, get_chat_from_channel
 
-MAX_CHANNELS_PER_BOT = 5
 
 class ChatMessenger:
+    BOT_LIMIT = 4
+    MAX_CHANNELS_PER_BOT = 5
+
     def __init__(
             self,
             clients_creator: ClientsCreator = Depends(),
@@ -59,7 +61,7 @@ class ChatMessenger:
             names_from_csv = self.__get_names_from_csv()
             self._chat_names = names_from_csv if names_from_csv else TELEGRAM_CHATS_TO_POST
         self._messages = messages
-        bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=4)
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=self.BOT_LIMIT)
         if len(bot_clients) == 0:
             raise Exception('No bots found')
 
@@ -80,7 +82,7 @@ class ChatMessenger:
 
         chats = []
         post_texts = {}
-        for name in chat_names[:MAX_CHANNELS_PER_BOT]:
+        for name in chat_names[:self.MAX_CHANNELS_PER_BOT]:
             try:
                 chat = await client.get_entity(name)
                 if not isinstance(chat, Channel):

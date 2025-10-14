@@ -122,7 +122,7 @@ class MessageReceiver:
                             users=[last_msg.sender]
                         ))
                 except Exception as e:
-                    logger.error(f"[Check_and_reply][{bot_client.get_name()}] Cannot invite user {last_msg.sender.username} to channel {promoting_channel} ({e})")
+                    logger.warning(f"[Check_and_reply][{bot_client.get_name()}] Cannot invite user {get_name_from_user(last_msg.sender)} to channel {promoting_channel} ({e})")
 
             except Exception as e:
                 logger.error(f"[Check_and_reply][{bot_client.get_name()}] Common error: {e}")

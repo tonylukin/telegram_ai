@@ -152,13 +152,17 @@ class ReactionSender:
         self._query = query
         self._reaction = reaction
         self._names = names
-        bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_react())
+        page = 0
         results = []
-        for i in range(0, len(bot_clients), self.BATCH_SIZE):
-            batch = bot_clients[i:i + self.BATCH_SIZE]
+        while True:
+            offset = page * self.BATCH_SIZE
+            bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_react(), limit=self.BATCH_SIZE, offset=offset)
             batch_results = await asyncio.gather(
-                *(self.__start_client(client) for client in batch)
+                *(self.__start_client(bot_client) for bot_client in bot_clients)
             )
             results.extend(batch_results)
+            page += 1
+            if len(bot_clients) < self.BATCH_SIZE:
+                break
 
         return results

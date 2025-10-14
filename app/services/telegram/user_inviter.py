@@ -19,6 +19,7 @@ from app.services.telegram.helpers import join_chats, get_chat_from_channel
 
 class UserInviter:
     DELAY_RANGE = (10, 20)
+    BOT_LIMIT = 3
 
     def __init__(self, clients_creator: ClientsCreator = Depends(), session: Session = Depends(get_db)):
         self._clients_creator = clients_creator
@@ -27,7 +28,7 @@ class UserInviter:
         self._session = session
 
     async def invite_users_from_comments(self,  source_channels: list[str] = None, target_channels: list[str] = None, count: int = None) -> list[dict[str, int]]:
-        bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite())
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite(), limit=self.BOT_LIMIT)
         if count is None:
             count = USER_INVITER_MAX_USERS
         if source_channels is None:
@@ -66,7 +67,7 @@ class UserInviter:
                     try:
                         messages_by_channel[channel] = await client.get_messages(PeerChannel(linked_chat_id), limit=count * 3)
                     except Exception as e:
-                        logger.error(f"[UserInviter][{bot_client.get_name()}]  Error {channel} [{linked_chat_id}]: {e}")
+                        logger.warning(f"[UserInviter][{bot_client.get_name()}]  Error {channel} [{linked_chat_id}]: {e}")
                         continue
                     channel_entities[channel] = await client.get_entity(linked_chat_id)
                 else:
