@@ -12,6 +12,7 @@ from app.schemas.TgUserInvitedSchema import TgUserInvitedSchema
 from app.services.telegram.assigned_channels_messenger import AssignedChannelsMessenger
 from app.services.telegram.bullying_machine import BullyingMachine
 from app.services.telegram.chat_messenger import ChatMessenger
+from app.services.telegram.chat_search_exporter import ChatSearchExporter
 from app.services.telegram.reaction_sender import ReactionSender
 from app.services.telegram.user_inviter import UserInviter
 
@@ -80,6 +81,14 @@ class BullyingBody(BaseModel):
 async def bullying(body: BullyingBody, bullying_machine: BullyingMachine = Depends()):
     try:
         result = await bullying_machine.answer_to_messages(username=body.username, channel_usernames=body.channel_names)
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/chat-search-export")
+async def chat_search_export(chat_search_exporter: ChatSearchExporter = Depends()):
+    try:
+        result = await chat_search_exporter.export()
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -46,6 +46,12 @@ LOCAL_CONFIG_PATH = CONFIG_DIR / "settings.local.json"
 with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as f:
     config = json.load(f)
 
+EXPORT_CHANNELS_PREDEFINED_QUERIES = []
+predefined_queries_path = CONFIG_DIR / 'data2' / 'EXPORT_CHANNELS_PREDEFINED_QUERIES.json'
+if predefined_queries_path.exists():
+    with open(predefined_queries_path, "r", encoding="utf-8") as f:
+        EXPORT_CHANNELS_PREDEFINED_QUERIES = json.load(f)
+
 # If local exists → override defaults
 if LOCAL_CONFIG_PATH.exists():
     with open(LOCAL_CONFIG_PATH, "r", encoding="utf-8") as f:
@@ -90,3 +96,4 @@ BULLYING_MESSAGE_PROMPT = config['BULLYING_MESSAGE_PROMPT']
 TIKTOK_AI_USER_INFO_PROFILE_PROMPT_RU = config['TIKTOK_AI_USER_INFO_PROFILE_PROMPT_RU']
 TIKTOK_AI_USER_INFO_PROFILE_PROMPT_EN = config['TIKTOK_AI_USER_INFO_PROFILE_PROMPT_EN']
 GENERATOR_FROM_CHANNEL_AI_PROMPT = config['GENERATOR_FROM_CHANNEL_AI_PROMPT']
+CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH = config['CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH']

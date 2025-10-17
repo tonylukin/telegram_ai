@@ -9,7 +9,8 @@ from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import Channel, PeerChannel
 
-from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
+from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE, \
+    CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH
 from app.configs.logger import logger
 from app.db.queries.bot_comment import get_bot_comments
 from app.dependencies import get_db, get_ai_client
@@ -165,7 +166,7 @@ class ChatMessenger:
         return result
 
     @staticmethod
-    def __get_names_from_csv(csv_path: str = 'data/postable_channels.csv', limit: int = 100) -> list[str]:
+    def __get_names_from_csv(csv_path: str = CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH, limit: int = 100) -> list[str]:
         if not os.path.exists(csv_path):
             logger.info(f"[ChatMessenger::__get_names_from_csv] {csv_path} doesn't exist")
             return []
