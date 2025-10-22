@@ -22,6 +22,9 @@ def get_news_maker() -> NewsMakerBase:
 def get_ai_client() -> AiClientBase:
     return GeminiClient()
 
+def get_open_ai_client() -> AiClientBase:
+    return OpenAiClient()
+
 def get_ai_client_images() -> AiClientBase:
     # return HuggingFaceClient()
     return OpenAiClient()

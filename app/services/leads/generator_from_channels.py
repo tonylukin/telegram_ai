@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import is_dev, GENERATOR_FROM_CHANNEL_AI_PROMPT
 from app.configs.logger import logger
 from app.db.queries.tg_lead import get_tg_lead_by_post_id
-from app.dependencies import get_ai_client, get_db
+from app.dependencies import get_ai_client, get_db, get_open_ai_client
 from app.models.tg_lead import TgLead
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.notification_sender import NotificationSender
@@ -24,7 +24,7 @@ class GeneratorFromChannels:
             self,
             user_message_search: UserMessagesSearch = Depends(),
             clients_creator: ClientsCreator = Depends(),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             chat_messenger: ChatMessenger = Depends(),
             session: Session = Depends(get_db),
     ):
@@ -59,7 +59,7 @@ class GeneratorFromChannels:
 
         await self._clients_creator.start_client(bot_clients[0], task_name='generate_from_telegram_channels')
         await join_chats(client=bot_clients[0].client, chats_to_join=chats)
-        chat_messages_list = await self._user_message_search.get_last_messages_from_chats(client=bot_clients[0].client, chats=chats, limit=100)
+        chat_messages_list = await self._user_message_search.get_last_messages_from_chats(client=bot_clients[0].client, chats=chats, limit=50)
         result = {}
 
         for chat_messages in chat_messages_list:
@@ -85,7 +85,7 @@ class GeneratorFromChannels:
                                     .split('<br>')
                                     )
                 except Exception as e:
-                    logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] AI error: {e}")
+                    logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] AI error: {e}")
                     matched_list = []
 
                 chat_key = chat.username or chat.id

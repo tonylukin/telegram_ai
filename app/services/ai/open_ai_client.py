@@ -14,7 +14,8 @@ class OpenAiClient(AiClientBase):
         self.client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     def generate_text(self, prompt: str):
-        model: str = "gpt-4"
+        # model: str = "gpt-4"
+        model: str = "gpt-5-nano"
         response = self.client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
