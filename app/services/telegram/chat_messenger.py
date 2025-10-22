@@ -168,7 +168,7 @@ class ChatMessenger:
     @staticmethod
     def __get_names_from_csv(csv_path: str = CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH, limit: int = 100) -> list[str]:
         if not os.path.exists(csv_path):
-            logger.info(f"[ChatMessenger::__get_names_from_csv] {csv_path} doesn't exist")
+            logger.error(f"[ChatMessenger::__get_names_from_csv] {csv_path} doesn't exist")
             return []
 
         channels = []

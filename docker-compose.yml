@@ -1,6 +1,7 @@
 services:
   fastapi:
     image: tonylukin/telegram_ai:latest
+    mem_limit: 2G
     build:
       context: .
       dockerfile: Dockerfile

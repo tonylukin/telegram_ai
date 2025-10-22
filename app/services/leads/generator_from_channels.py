@@ -13,6 +13,7 @@ from app.services.ai.ai_client_base import AiClientBase
 from app.services.notification_sender import NotificationSender
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.clients_creator import ClientsCreator
+from app.services.telegram.helpers import get_name_from_user
 from app.services.telegram.user_messages_search import UserMessagesSearch
 from app.models.bot import Bot
 
@@ -34,18 +35,22 @@ class GeneratorFromChannels:
         self._telegram_message_sender = NotificationSender()
         self._notify_about_leads: bool = is_dev()
 
-    def set_notification_credentials(self, bot_token: str, chat_id: str):
+    def set_notification_credentials(self, chat_id: str, bot_token: str = None):
         self._notify_about_leads = True
-        self._telegram_message_sender.telegram_message_sender.set_telegram_bot_token(bot_token).set_telegram_chat_id(chat_id)
+        if bot_token:
+            self._telegram_message_sender.telegram_message_sender.set_telegram_bot_token(bot_token)
+        self._telegram_message_sender.telegram_message_sender.set_telegram_chat_id(chat_id)
         return self
 
-    async def generate_from_telegram_channels(self, chats: list[str], condition: str, answers: list[str] = None) -> dict[str, list[str]]:
-        bot_clients = self._clients_creator.create_clients_from_bots(roles=[Bot.ROLE_LEAD_FROM_CHANNEL], limit=1)
+    async def generate_from_telegram_channels(self, chats: list[str], condition: str, answers: list[str] = None, bot_roles: list[str] = None) -> dict[str, list[str]]:
+        if bot_roles is None:
+            bot_roles = [Bot.ROLE_LEAD_FROM_CHANNEL]
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles, limit=1)
         if not bot_clients:
             raise Exception('[GeneratorFromChannels::generate_from_telegram_channels]: No bots found')
 
         await self._clients_creator.start_client(bot_clients[0], task_name='generate_from_telegram_channels')
-        chat_messages_list = await self._user_message_search.get_last_messages_from_chats(client=bot_clients[0].client, chats=chats)
+        chat_messages_list = await self._user_message_search.get_last_messages_from_chats(client=bot_clients[0].client, chats=chats, limit=100)
         result = {}
 
 
@@ -59,7 +64,7 @@ class GeneratorFromChannels:
 
                 for message in messages:
                     if message.text and message.text.strip() and message.id:
-                        message_to_id_map[message.text] = message.id
+                        message_to_id_map[message.text] = (message.id, get_name_from_user(message.sender))
                 try:
                     matched_list = (self
                                     ._ai_client
@@ -79,7 +84,7 @@ class GeneratorFromChannels:
                     # response_message = self._ai_client.generate_text(
                     #     prompt=answer_prompt.format(message=matched_message)
                     # )
-                    post_id = message_to_id_map[matched_message]
+                    post_id, sender_name = message_to_id_map[matched_message]
                     if get_tg_lead_by_post_id(session=self._session, post_id=post_id):
                         logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] lead exists, skip message #{post_id}: {matched_message}")
                         continue
@@ -105,7 +110,9 @@ class GeneratorFromChannels:
                     )
                     self._session.add(tg_lead)
                     if self._notify_about_leads:
-                        message = f'Found new lead `{matched_message}` in chat `{chat.username or chat.id}`, answer: `{answer}`'
+                        message = f'Found new lead from {sender_name} in chat @{chat.username} [{chat.id}]\n'
+                        message += f'<blockquote>{matched_message}</blockquote>\n\n'
+                        message += f'<strong>Answer</strong>:\n{answer}'
                         self.__notify_about_lead(message)
 
             except Exception as e:
