@@ -84,7 +84,7 @@ class GeneratorFromChannels:
                                     .split('<br>')
                                     )
                 except Exception as e:
-                    logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] error: {e}")
+                    logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] AI error: {e}")
                     matched_list = []
 
                 chat_key = chat.username or chat.id
@@ -98,6 +98,9 @@ class GeneratorFromChannels:
                     #     prompt=answer_prompt.format(message=matched_message)
                     # )
                     text_hash = hashlib.md5(matched_message.encode("utf-8")).hexdigest()
+                    if text_hash not in message_to_id_map:
+                        continue
+
                     post_id, sender_name = message_to_id_map[text_hash]
                     if get_tg_lead_by_post_id(session=self._session, post_id=post_id):
                         logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] lead exists, skip message #{post_id}: {matched_message}")
