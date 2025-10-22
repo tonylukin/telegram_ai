@@ -14,7 +14,7 @@ from app.services.ai.ai_client_base import AiClientBase
 from app.services.notification_sender import NotificationSender
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.clients_creator import ClientsCreator
-from app.services.telegram.helpers import get_name_from_user
+from app.services.telegram.helpers import get_name_from_user, join_chats
 from app.services.telegram.user_messages_search import UserMessagesSearch
 from app.models.bot import Bot
 
@@ -58,6 +58,7 @@ class GeneratorFromChannels:
             raise Exception('[GeneratorFromChannels::generate_from_telegram_channels]: No bots found')
 
         await self._clients_creator.start_client(bot_clients[0], task_name='generate_from_telegram_channels')
+        await join_chats(client=bot_clients[0].client, chats_to_join=chats)
         chat_messages_list = await self._user_message_search.get_last_messages_from_chats(client=bot_clients[0].client, chats=chats, limit=100)
         result = {}
 
