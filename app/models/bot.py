@@ -33,3 +33,4 @@ class Bot(Base):
     task_name = Column(String(32), nullable=True)
 
     comments = relationship("BotComment", back_populates="bot", lazy="selectin")
+    reactions = relationship("TgPostReaction", back_populates="bot")

@@ -3,12 +3,16 @@ import random
 from typing import Final
 
 from fastapi.params import Depends
+from sqlalchemy.orm import Session
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import SendReactionRequest
 from telethon.tl.types import Channel, PeerChannel
 from telethon.tl.types import ReactionEmoji
 
 from app.configs.logger import logger
+from app.db.queries.tg_post_reaction import get_reaction_by_post_id_bot_id
+from app.dependencies import get_db
+from app.models.tg_post_reaction import TgPostReaction
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_react, BotClient
 
@@ -18,14 +22,22 @@ class ReactionSender:
     MAX_MESSAGES_PER_CHAT: Final[int] = 100
     REACTIONS: Final[tuple[str, ...]] = ("❤️", "🔥", "👍", "💯", "🙏", "👀", "😁", "🎉", "🤔", "👏", "🥰")
     BATCH_SIZE: Final[int] = 5
+    LAST_MESSAGES_COUNT_FOR_RANDOM_REACTIONS: Final[int] = 20
 
-    def __init__(self, clients_creator: ClientsCreator = Depends(), chat_searcher: ChatSearcher = Depends(ChatSearcher)):
+    def __init__(
+            self,
+            clients_creator: ClientsCreator = Depends(),
+            chat_searcher: ChatSearcher = Depends(ChatSearcher),
+            session: Session = Depends(get_db),
+    ):
         self._clients = []
         self._clients_creator = clients_creator
         self._chat_searcher = chat_searcher
         self._query = None
         self._reaction = None
-        self._names = None
+        self._chat_names = None
+        self._usernames = None
+        self._session = session
 
     async def __send_reactions_to_my_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         client = bot_client.client
@@ -54,6 +66,9 @@ class ReactionSender:
                     if random.choice(range(int(self.MAX_MESSAGES_PER_CHAT / self.MAX_REACTIONS_PER_CHAT * 2))) > 0:
                         continue
 
+                    if get_reaction_by_post_id_bot_id(session=self._session, post_id=message.id, bot_id=bot_client.bot.id) is not None:
+                        continue
+
                     await asyncio.sleep(min(current_chat_reactions_count, 1) * 30)  # DELAY!!!
                     await client(SendReactionRequest(
                         peer=entity,
@@ -64,23 +79,47 @@ class ReactionSender:
                     logger.info(f"[ReactionSender::__send_reactions_to_my_chats][{bot_client.get_name()}] Reacted to comment {message.id} in {entity.title}")
                     counter[entity.title] = counter.get(entity.title, 0) + 1
 
+                    tg_post_reaction = TgPostReaction(
+                        channel=entity.username or str(entity.id),
+                        post_id=message.id,
+                        bot_id=bot_client.bot.id,
+                        reaction=reaction
+                    )
+                    self._session.add(tg_post_reaction)
+
             except Exception as e:
                 logger.error(f"[ReactionSender::__send_reactions_to_my_chats][{bot_client.get_name()}] ⚠️ Failed to react {reaction} to comment {entity.title}: {e}")
 
         return {bot_client.get_name(): counter}
 
-    async def __make_reactions_for_chat(self, bot_client: BotClient, chat: Channel) -> dict[str, dict[str, int]]:
+    async def __make_reactions_for_chat(self, bot_client: BotClient, chat: Channel, usernames: list[str]|list[int] = None) -> dict[str, dict[str, int]]:
         counter = {}
         client = bot_client.client
         try:
             logger.info(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] 🧭 Sending reaction for: {chat.title}")
-            messages = await client.get_messages(chat.id, limit=10)
+            messages = await client.get_messages(chat.id, limit=self.LAST_MESSAGES_COUNT_FOR_RANDOM_REACTIONS if not usernames else 100)
             discussion_peer = PeerChannel(chat.id)
             me = await client.get_me()
 
+            id_set = username_set = fullname_set = {}
+            if usernames:
+                id_set = {u for u in usernames if isinstance(u, int)}
+                username_set = {u.lstrip('@') for u in usernames if isinstance(u, str) and u.startswith('@')}
+                fullname_set = {u for u in usernames if isinstance(u, str) and not u.startswith('@')}
+
             for message in messages:
-                if message.sender_id == me.id or message.out or random.random() > 0.5:
+                if not usernames and (message.sender_id == me.id or message.out or random.random() > 0.5):
                     logger.warning(f'[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] it is my post')
+                    continue
+
+                if usernames:
+                    sender_id = getattr(message.sender, "id", None)
+                    sender_username = getattr(message.sender, "username", None)
+                    sender_fullname = ((getattr(message.sender, "first_name", '') or '') + ' ' + (getattr(message.sender, "last_name", '') or '')).strip()
+                    if sender_id not in id_set and sender_username not in username_set and sender_fullname not in fullname_set:
+                        continue
+
+                if get_reaction_by_post_id_bot_id(session=self._session, post_id=message.id, bot_id=bot_client.bot.id) is not None:
                     continue
 
                 reaction = self._reaction if self._reaction is not None else random.choice(self.REACTIONS)
@@ -94,32 +133,41 @@ class ReactionSender:
                     counter[chat.title] = counter.get(chat.title, 0) + 1
                 except Exception as e:
                     logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ⚠️ Failed to react {reaction}: {e}")
+
+                tg_post_reaction = TgPostReaction(
+                    channel=chat.username or str(chat.id),
+                    post_id=message.id,
+                    bot_id=bot_client.bot.id,
+                    reaction=reaction
+                )
+                self._session.add(tg_post_reaction)
         except Exception as e:
             logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ❌ Chat {chat.title} error: {e}")
 
         return {bot_client.get_name(): counter}
 
-    async def __search_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+    async def __search_chats(self, bot_client: BotClient, query: str, usernames: list[str] | list[int] = None) -> dict[str, dict[str, int]]:
         client = bot_client.client
-        chats = await self._chat_searcher.search_chats(client, self._query)
+        chats = await self._chat_searcher.search_chats(client, query)
         logger.info(f"[ReactionSender::__search_chats][{bot_client.get_name()}] Found {len(chats)} chats")
         result = {}
         for chat in chats:
             try:
                 await client(JoinChannelRequest(chat))
-                result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
+                result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat, usernames=usernames))
             except Exception as e:
                 logger.error(f"[ReactionSender::__search_chats][{bot_client.get_name()}] Search chats error: {e}")
 
+        self._session.flush()
         return result
 
-    async def __send_to_specific_chats(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
+    async def __send_to_specific_chats(self, bot_client: BotClient, chat_names: list[str], usernames: list[str] | list[int] = None) -> dict[str, dict[str, int]]:
         client = bot_client.client
         result = {}
         chats = []
-        for name in self._names:
+        for chat_name in chat_names:
             try:
-                chat = await client.get_entity(name)
+                chat = await client.get_entity(chat_name)
                 chats.append(chat)
             except Exception as e:
                 logger.error(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Getting chat instance error: {e}")
@@ -128,19 +176,20 @@ class ReactionSender:
             try:
                 await client(JoinChannelRequest(chat))
                 await asyncio.sleep(5)
-                result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat))
+                result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat, usernames=usernames))
             except Exception as e:
                 logger.error(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Search chats error: {e}")
 
+        self._session.flush()
         return result
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         await self._clients_creator.start_client(bot_client, task_name='send_reactions')
         logger.info(f"[ReactionSender::__start_client] {bot_client.get_name()} started")
-        if self._names is not None:
-            result = await self.__send_to_specific_chats(bot_client)
+        if self._chat_names is not None:
+            result = await self.__send_to_specific_chats(bot_client, self._chat_names, self._usernames)
         elif self._query is not None:
-            result = await self.__search_chats(bot_client)
+            result = await self.__search_chats(bot_client, self._query, self._usernames)
         else:
             result = await self.__send_reactions_to_my_chats(bot_client)
 
@@ -148,10 +197,11 @@ class ReactionSender:
         logger.info(f"[ReactionSender::__start_client][{bot_client.get_name()}] Reactions sent: {result}")
         return result
 
-    async def send_reactions(self, query: str = None, reaction: str = None, names: list[str] = None) -> list[dict[str, int]]:
+    async def send_reactions(self, query: str = None, reaction: str = None, chat_names: list[str] = None, usernames: list[str] | list[int] = None) -> list[dict[str, int]]:
         self._query = query
         self._reaction = reaction
-        self._names = names
+        self._chat_names = chat_names
+        self._usernames = usernames
         page = 0
         results = []
         while True:

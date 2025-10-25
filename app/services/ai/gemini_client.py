@@ -5,7 +5,7 @@ from io import BytesIO
 import google.generativeai as genai
 from PIL import Image
 
-from app.config import GEMINI_API_KEY
+from app.config import GEMINI_API_KEY, GEMINI_TEXT_MODEL, GEMINI_IMAGE_MODEL
 from app.services.ai.ai_client_base import AiClientBase
 
 
@@ -17,8 +17,8 @@ class GeminiClient(AiClientBase):
 
     def generate_image(self, prompt: str):
         pass
-        response = self.client.models.generate_images(
-            model='imagen-3.0-generate-002',
+        response = self.client.models.generate_images( #todo this will not work
+            model=GEMINI_IMAGE_MODEL,
             prompt=prompt,
             config=genai.types.GenerateImagesConfig(
                 number_of_images=1
@@ -33,6 +33,6 @@ class GeminiClient(AiClientBase):
         return None
 
     def generate_text(self, prompt: str) -> str:
-        model = genai.GenerativeModel(model_name="gemini-2.0-flash")
+        model = genai.GenerativeModel(model_name=GEMINI_TEXT_MODEL)
         response = model.generate_content(prompt)
         return response.text

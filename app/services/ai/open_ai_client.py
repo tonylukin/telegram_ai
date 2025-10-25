@@ -3,7 +3,7 @@ import base64
 import openai
 import requests
 
-from app.config import OPENAI_API_KEY
+from app.config import OPENAI_API_KEY, OPEN_AI_TEXT_MODEL, OPEN_AI_IMAGE_MODEL
 from app.services.ai.ai_client_base import AiClientBase
 
 
@@ -15,7 +15,7 @@ class OpenAiClient(AiClientBase):
 
     def generate_text(self, prompt: str):
         # model: str = "gpt-4"
-        model: str = "gpt-5-nano"
+        model: str = OPEN_AI_TEXT_MODEL
         response = self.client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -25,7 +25,7 @@ class OpenAiClient(AiClientBase):
     def generate_image(self, prompt: str) -> str|None:
         response = self.client.images.generate(
             # model="dall-e-2",
-            model="dall-e-3",  # Или "dall-e-3" для более качественных изображений
+            model=OPEN_AI_IMAGE_MODEL,
             prompt=prompt,
             n=1,
             # size="256x256"

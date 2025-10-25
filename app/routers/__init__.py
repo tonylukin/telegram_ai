@@ -4,6 +4,7 @@ from .user_info import router as user_info_router
 from .message import router as message_router
 from .health import router as health_router
 from .leads import router as leads_router
+from .reactions import router as reactions_router
 
 all_routers = [
     chat_router,
@@ -12,4 +13,5 @@ all_routers = [
     message_router,
     health_router,
     leads_router,
+    reactions_router,
 ]
