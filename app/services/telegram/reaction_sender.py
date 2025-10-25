@@ -66,7 +66,8 @@ class ReactionSender:
                     if random.choice(range(int(self.MAX_MESSAGES_PER_CHAT / self.MAX_REACTIONS_PER_CHAT * 2))) > 0:
                         continue
 
-                    if get_reaction_by_post_id_bot_id(session=self._session, post_id=message.id, bot_id=bot_client.bot.id) is not None:
+                    chat_name = entity.username or str(entity.id)
+                    if get_reaction_by_post_id_bot_id(session=self._session, post_id=message.id, channel=chat_name, bot_id=bot_client.bot.id) is not None:
                         continue
 
                     await asyncio.sleep(min(current_chat_reactions_count, 1) * 30)  # DELAY!!!
@@ -80,7 +81,7 @@ class ReactionSender:
                     counter[entity.title] = counter.get(entity.title, 0) + 1
 
                     tg_post_reaction = TgPostReaction(
-                        channel=entity.username or str(entity.id),
+                        channel=chat_name,
                         post_id=message.id,
                         bot_id=bot_client.bot.id,
                         reaction=reaction
@@ -119,7 +120,8 @@ class ReactionSender:
                     if sender_id not in id_set and sender_username not in username_set and sender_fullname not in fullname_set:
                         continue
 
-                if get_reaction_by_post_id_bot_id(session=self._session, post_id=message.id, bot_id=bot_client.bot.id) is not None:
+                chat_name = chat.username or str(chat.id)
+                if get_reaction_by_post_id_bot_id(session=self._session, channel=chat_name, post_id=message.id, bot_id=bot_client.bot.id) is not None:
                     continue
 
                 reaction = self._reaction if self._reaction is not None else random.choice(self.REACTIONS)
@@ -135,7 +137,7 @@ class ReactionSender:
                     logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ⚠️ Failed to react {reaction}: {e}")
 
                 tg_post_reaction = TgPostReaction(
-                    channel=chat.username or str(chat.id),
+                    channel=chat_name,
                     post_id=message.id,
                     bot_id=bot_client.bot.id,
                     reaction=reaction

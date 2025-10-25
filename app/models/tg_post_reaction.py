@@ -24,5 +24,5 @@ class TgPostReaction(Base):
     bot = relationship("Bot", back_populates="reactions")
 
     __table_args__ = (
-        UniqueConstraint("post_id", "bot_id", name="uq_tg_post_reactions_post_id_bot_id"),
+        UniqueConstraint("post_id", "channel", "bot_id", name="uq_tg_post_reactions_post_id_channel_bot_id"),
     )
