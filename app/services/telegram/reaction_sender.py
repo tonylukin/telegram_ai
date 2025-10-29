@@ -15,6 +15,7 @@ from app.dependencies import get_db
 from app.models.tg_post_reaction import TgPostReaction
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_react, BotClient
+from app.services.telegram.helpers import get_name_from_user
 
 
 class ReactionSender:
@@ -83,6 +84,7 @@ class ReactionSender:
                     tg_post_reaction = TgPostReaction(
                         channel=chat_name,
                         post_id=message.id,
+                        sender_name=get_name_from_user(message.sender),
                         bot_id=bot_client.bot.id,
                         reaction=reaction
                     )
@@ -139,6 +141,7 @@ class ReactionSender:
                 tg_post_reaction = TgPostReaction(
                     channel=chat_name,
                     post_id=message.id,
+                    sender_name=get_name_from_user(message.sender),
                     bot_id=bot_client.bot.id,
                     reaction=reaction
                 )
@@ -156,6 +159,9 @@ class ReactionSender:
         for chat in chats:
             try:
                 await client(JoinChannelRequest(chat))
+            except Exception:
+                pass
+            try:
                 result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat, usernames=usernames))
             except Exception as e:
                 logger.error(f"[ReactionSender::__search_chats][{bot_client.get_name()}] Search chats error: {e}")
@@ -177,6 +183,9 @@ class ReactionSender:
         for chat in chats:
             try:
                 await client(JoinChannelRequest(chat))
+            except Exception:
+                pass
+            try:
                 await asyncio.sleep(5)
                 result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat, usernames=usernames))
             except Exception as e:

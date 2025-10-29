@@ -20,6 +20,7 @@ class TgPostReaction(Base):
     reaction = Column(String(16), nullable=False)
     bot_id = Column(Integer, ForeignKey("bots.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    sender_name = Column(String, nullable=True, default=None)
 
     bot = relationship("Bot", back_populates="reactions")
 
