@@ -20,8 +20,8 @@ class BotHealthChecker:
         self._clients_creator = clients_creator
         self._session = session
 
-    async def check_bots_statuses(self) -> dict[str, str]:
-        bot_clients = self._clients_creator.create_clients_from_bots(roles=[Bot.ROLE_HEALTH_CHECK])
+    async def check_bots_statuses(self, all_roles: bool = False) -> dict[str, str]:
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=[Bot.ROLE_HEALTH_CHECK] if not all_roles else None)
         results = {}
         for bot_client in bot_clients:
             client = bot_client.client

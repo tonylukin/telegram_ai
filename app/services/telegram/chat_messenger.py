@@ -22,8 +22,8 @@ from app.services.telegram.helpers import is_user_in_group, get_chat_from_channe
 
 
 class ChatMessenger:
-    BOT_LIMIT = 4
-    MAX_CHANNELS_PER_BOT = 5
+    BOT_LIMIT = 5
+    MAX_CHANNELS_PER_BOT = 1
 
     def __init__(
             self,
@@ -56,13 +56,20 @@ class ChatMessenger:
             logger.warning(f"[ChatMessenger::send_message][{bot_client.get_name()}] ❌ Failed to send message to {chat.title}: {e}")
             return False
 
-    async def send_messages_to_chats_by_names(self, messages: list[str] = None, names: list[str] = None, bot_roles: list[str] = None) -> list[dict[str, int]]:
+    async def send_messages_to_chats_by_names(
+            self,
+            messages: list[str] = None,
+            names: list[str] = None,
+            bot_roles: list[str] = None,
+            max_channels_per_bot: int = None,
+            bot_limit: int = None,
+    ) -> list[dict[str, int]]:
         self._chat_names = names
         if self._chat_names is None:
             names_from_csv = self.__get_names_from_csv()
             self._chat_names = names_from_csv if names_from_csv else TELEGRAM_CHATS_TO_POST
         self._messages = messages
-        bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=self.BOT_LIMIT)
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=(bot_limit or self.BOT_LIMIT))
         if len(bot_clients) == 0:
             raise Exception('No bots found')
 
@@ -70,11 +77,11 @@ class ChatMessenger:
         random.shuffle(chat_names)
         k, m = divmod(len(chat_names), len(bot_clients))
         return await asyncio.gather(
-            *(self.__start_client(client, chat_names[i * k + min(i, m):(i + 1) * k + min(i + 1, m)]) for i, client in
+            *(self.__start_client(bot_client=client, chat_names=chat_names[i * k + min(i, m):(i + 1) * k + min(i + 1, m)], max_channels_per_bot=max_channels_per_bot) for i, client in
               enumerate(bot_clients))
         )
 
-    async def __start_client(self, bot_client: BotClient, chat_names: list[str]) -> dict[str, dict[str, int]]:
+    async def __start_client(self, bot_client: BotClient, chat_names: list[str], max_channels_per_bot: int = None) -> dict[str, dict[str, int]]:
         client = bot_client.client
         await self._clients_creator.start_client(bot_client, task_name='send_messages_to_chats_by_names')
         logger.info(f"[ChatMessenger::__start_client] {bot_client.get_name()} started")
@@ -83,7 +90,7 @@ class ChatMessenger:
 
         chats = []
         post_texts = {}
-        for name in chat_names[:self.MAX_CHANNELS_PER_BOT]:
+        for name in chat_names[:(max_channels_per_bot or self.MAX_CHANNELS_PER_BOT)]:
             try:
                 chat = await client.get_entity(name)
                 if not isinstance(chat, Channel):

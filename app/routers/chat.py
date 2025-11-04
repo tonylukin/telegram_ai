@@ -21,11 +21,19 @@ class GenerateMessagesBody(BaseModel):
     names: Optional[list[str]] = None
     messages: Optional[list[str]] = None
     bot_roles: Optional[list[str]] = None
+    max_channels_per_bot: Optional[int] = None
+    bot_limit: Optional[int] = None
 
 @router.post("/generate-messages")
 async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMessenger = Depends()):
     try:
-        result = await chat_messenger.send_messages_to_chats_by_names(names=body.names, messages=body.messages, bot_roles=body.bot_roles)
+        result = await chat_messenger.send_messages_to_chats_by_names(
+            names=body.names,
+            messages=body.messages,
+            bot_roles=body.bot_roles,
+            max_channels_per_bot=body.max_channels_per_bot,
+            bot_limit=body.bot_limit,
+        )
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
