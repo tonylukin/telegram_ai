@@ -49,7 +49,7 @@ with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as f:
     config = json.load(f)
 
 EXPORT_CHANNELS_PREDEFINED_QUERIES = []
-predefined_queries_path = CONFIG_DIR / 'data2' / 'EXPORT_CHANNELS_PREDEFINED_QUERIES.json'
+predefined_queries_path = CONFIG_DIR / 'data' / 'EXPORT_CHANNELS_PREDEFINED_QUERIES.json'
 if predefined_queries_path.exists():
     with open(predefined_queries_path, "r", encoding="utf-8") as f:
         EXPORT_CHANNELS_PREDEFINED_QUERIES = json.load(f)

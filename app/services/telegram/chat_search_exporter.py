@@ -37,7 +37,7 @@ class ChatSearchExporter:
                     continue
 
                 for channel in query_channels_found:
-                    if channel.username and 1000 <= channel.participants_count <= 10000 and not channel.broadcast:
+                    if channel.username and channel.participants_count and 1000 <= channel.participants_count <= 10000 and not channel.broadcast:
                         channels_found.append(('@' + channel.username, channel.title, channel.participants_count))
 
             except Exception as e:
