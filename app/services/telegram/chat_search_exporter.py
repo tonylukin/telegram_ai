@@ -56,4 +56,6 @@ class ChatSearchExporter:
         except Exception as e:
             logger.error(e)
 
+        await self._clients_creator.disconnect_client(bot_client)
+
         return channels_found
