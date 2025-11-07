@@ -12,7 +12,8 @@ for r in all_routers:
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     # Skip auth for open endpoints if needed
-    if request.url.path in ["/open", "/docs", "/openapi.json"] or ENV == 'dev':
+    # if request.url.path in ["/open", "/docs", "/openapi.json"] or ENV == 'dev':
+    if ENV == 'dev':
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization") or request.query_params.get("Authorization")

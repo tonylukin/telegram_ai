@@ -11,6 +11,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+from app.bots.utils import get_user_id_from_update, back_keyboard
 
 from app.config import TELEGRAM_FUTURE_ADS_AI_BOT_TOKEN, TELEGRAM_FUTURE_ADS_NOTIFICATIONS_CHAT_ID
 from app.services.notification_sender import NotificationSender
@@ -51,17 +52,8 @@ def main_menu_keyboard(user_id: int):
     return InlineKeyboardMarkup(buttons)
 
 
-def back_keyboard(user_id):
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton(f"⬅️ {t(user_id, 'back')}", callback_data="back")]]
-    )
-
-# todo move it to decorator
-def __get_user_id_from_update(update: Update):
-    return update.effective_user.id if hasattr(update, 'effective_user') else update.message.from_user.id
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
 
     await update.message.reply_text(
         get_intro(user_id),
@@ -88,14 +80,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(
             text=t(user_id, 'feedback') + f"\n\n✉️ {t(user_id, 'feedback_2')}",
             parse_mode="Markdown",
-            reply_markup=back_keyboard(user_id),
+            reply_markup=back_keyboard(user_id, t),
         )
 
     elif data in PAGES:
         await query.edit_message_text(
             text=t(user_id, data),
             parse_mode="Markdown",
-            reply_markup=back_keyboard(user_id),
+            reply_markup=back_keyboard(user_id, t),
         )
     else:
         await query.answer("Unknown callback data.")
@@ -122,7 +114,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(get_intro(user_id), reply_markup=main_menu_keyboard(user_id))
 
 
-def t(user_id, key):
+def t(user_id: int, key: str):
     lang = user_lang.get(user_id, DEFAULT_LANGUAGE)
     return translations.get(lang).get(key, key)
 

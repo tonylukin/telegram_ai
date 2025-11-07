@@ -14,6 +14,7 @@ translations = {
         "set_username": "Enter username (@ivan), if any, or full account name (Ivan Ivanov), or text of the message in the group:",
         "ig_set_username": "Enter username of Instagram public account:",
         "tiktok_set_username": "Enter username of TikTok public account:",
+        "back": "Back",
         "info":
 """
 🔎 Want to learn more about a Telegram user?
@@ -79,6 +80,7 @@ Connect and find the people you need in Telegram — quickly, easily and effecti
         "set_username": "Введите username (@ivan), если есть, либо полное имя аккаунта (Иван Иванов), либо текст сообщения в группе:",
         "ig_set_username": "Введите username публичного аккаунта в Instagram:",
         "tiktok_set_username": "Введите username публичного аккаунта в TikTok:",
+        "back": "Назад",
         "info":
 """🔎 Хотите узнать больше о пользователе Telegram?
 Теперь это проще, чем когда-либо! Наш бот поможет найти информацию по человеку, если вы знаете хотя бы его имя и чаты, где он состоит.

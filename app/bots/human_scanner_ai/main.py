@@ -12,21 +12,23 @@ from app.configs.logger import logger
 from app.config import RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_HOST
 from app.services.notification_sender import NotificationSender
 from translations import translations
+from app.bots.utils import get_user_id_from_update, back_keyboard, get_user_info_from_update
 
-MENU, USERNAME, CHATS, CONFIRM = range(4)
-SET_FEEDBACK = 'set_feedback'
-IG_USERNAME = 'ig_username'
-IG_CONFIRM = 'ig_confirm'
-TIKTOK_USERNAME = 'tiktok_username'
-TIKTOK_CONFIRM = 'tiktok_confirm'
+(TG_USERNAME, TG_CHATS, TG_CONFIRM,
+ IG_USERNAME, IG_CONFIRM,
+ TIKTOK_USERNAME, TIKTOK_CONFIRM,
+ SET_FEEDBACK) = range(8)
+GENERAL = 'general'
 LOGGER_PREFIX = 'HumanScannerBot'
 DEFAULT_LANGUAGE = 'ru'
 user_data = {}
 user_lang = {} #todo to DB
 notification_sender = NotificationSender()
 
-def get_menu(user_id: int) -> list:
-    return [
+get_intro = lambda user_id: t(user_id, 'greeting')
+
+def main_menu_keyboard(user_id: int):
+    buttons = [
         [InlineKeyboardButton(f"✈️ {t(user_id, 'human_scan')}", callback_data="human_scan")],
         [InlineKeyboardButton(f"📸 {t(user_id, 'ig_human_scan')}", callback_data="ig_human_scan")],
         [InlineKeyboardButton(f"🎵 {t(user_id, 'tiktok_human_scan')}", callback_data="tiktok_human_scan")],
@@ -35,9 +37,10 @@ def get_menu(user_id: int) -> list:
         [InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
          InlineKeyboardButton("🇷🇺 Русский", callback_data="lang_ru")]
     ]
+    return InlineKeyboardMarkup(buttons)
 
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
     if update.message:
         message = update.message
     elif update.callback_query:
@@ -50,31 +53,33 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = message.chat.id
     user_data[chat_id] = {}
 
-    keyboard = get_menu(user_id)
     await message.reply_text(
-        t(user_id, 'greeting'),
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        get_intro(user_id),
+        reply_markup=main_menu_keyboard(user_id)
     )
-    return MENU
+    return GENERAL
 
 
-async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print('Start this ' + update.callback_query.data)
     query = update.callback_query
     await query.answer()
     chat_id = query.message.chat_id
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
 
     if query.data == "human_scan":
         user_data[chat_id] = {}
         await query.message.reply_text(
             t(user_id, 'set_username'),
+            reply_markup=back_keyboard(user_id, t),
         )
-        return USERNAME
+        return TG_USERNAME
 
     elif query.data == "ig_human_scan":
         user_data[chat_id] = {}
         await query.message.reply_text(
             t(user_id, 'ig_set_username'),
+            reply_markup=back_keyboard(user_id, t),
         )
         return IG_USERNAME
 
@@ -82,31 +87,31 @@ async def handle_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_data[chat_id] = {}
         await query.message.reply_text(
             t(user_id, 'tiktok_set_username'),
+            reply_markup=back_keyboard(user_id, t),
         )
         return TIKTOK_USERNAME
 
     elif query.data == "info":
-        await query.message.reply_text(
+        await query.edit_message_text(
             t(user_id, 'info'),
+            reply_markup=back_keyboard(user_id, t),
         )
-        return await show_menu_again(query, context)
 
     elif query.data == "feedback":
-        await query.message.reply_text(
+        await query.edit_message_text(
             t(user_id, 'feedback_text'),
+            reply_markup=back_keyboard(user_id, t),
         )
         return SET_FEEDBACK
 
+    elif query.data == "back":
+        await query.edit_message_text(
+            text=get_intro(user_id),
+            reply_markup=main_menu_keyboard(user_id),
+        )
 
-async def show_menu_again(query, context):
-    user_id = query.from_user.id
-    keyboard = get_menu(user_id)
-
-    await query.message.reply_text(
-        t(user_id, 'next'),
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-    return MENU
+    print(f"{LOGGER_PREFIX} - handled callback: {query.data}")
+    return GENERAL
 
 async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -116,28 +121,39 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     user_lang[user_id] = lang_code
 
-    return await menu(update, context)
+    await query.edit_message_text(
+        text=get_intro(user_id),
+        reply_markup=main_menu_keyboard(user_id),
+    )
+    return GENERAL
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    return await menu(update, context)
+    user_id = get_user_id_from_update(update)
+    await update.message.reply_text(
+        get_intro(user_id),
+        reply_markup=main_menu_keyboard(user_id)
+    )
+    return GENERAL
 
 async def restart(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     return await menu(update_or_query, context)
 
-async def get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def tg_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print('TG USERNAME')
     chat_id = update.effective_chat.id
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
     user_data[chat_id]['username'] = update.message.text
 
     await update.message.reply_text(
-        t(user_id, 'enter_chats')
+        t(user_id, 'enter_chats'),
+        reply_markup=back_keyboard(user_id, t),
     )
-    return CHATS
+    return TG_CHATS
 
 async def ig_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_data[chat_id]['username'] = update.message.text
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
 
     keyboard = [
         [InlineKeyboardButton(f"✅ {t(user_id, 'confirm')}", callback_data="ig_confirm")],
@@ -152,7 +168,7 @@ async def ig_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def tiktok_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     user_data[chat_id]['username'] = update.message.text
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
 
     keyboard = [
         [InlineKeyboardButton(f"✅ {t(user_id, 'confirm')}", callback_data="tiktok_confirm")],
@@ -165,21 +181,20 @@ async def tiktok_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE
     return TIKTOK_CONFIRM
 
 async def set_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = __get_user_id_from_update(update)
-    user_info = __get_user_info_from_update(update)
+    user_id = get_user_id_from_update(update)
+    user_info = get_user_info_from_update(update)
     text = f"{user_info.get('name')}:\n{update.message.text}"
     await notification_sender.send_notification_message(text)
 
-    keyboard = get_menu(user_id)
     await update.message.reply_text(
         t(user_id, 'feedback_outro'),
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=main_menu_keyboard(user_id)
     )
-    return MENU
+    return GENERAL
 
-async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def tg_get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
     chats = [c.strip() for c in update.message.text.split(',') if c.strip()]
     user_data[chat_id]['chats'] = chats
 
@@ -195,12 +210,12 @@ async def get_chats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
-    return CONFIRM
+    return TG_CONFIRM
 
 async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    user_id = __get_user_id_from_update(update)
+    user_id = get_user_id_from_update(update)
 
     if query.data == "confirm":
         chat_id = query.message.chat_id
@@ -211,7 +226,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
             "username": user_data[chat_id]['username'],
             "chats": user_data[chat_id]['chats'],
         }
-        return await add_request_to_queue(RABBITMQ_QUEUE_HUMAN_SCANNER, query, payload)
+        return await add_request_to_queue(update, context, RABBITMQ_QUEUE_HUMAN_SCANNER, query, payload)
 
     elif query.data == "ig_confirm":
         chat_id = query.message.chat_id
@@ -221,7 +236,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         payload = {
             "username": user_data[chat_id]['username'],
         }
-        return await add_request_to_queue(RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER, query, payload)
+        return await add_request_to_queue(update, context, RABBITMQ_QUEUE_INSTAGRAM_HUMAN_SCANNER, query, payload)
 
     elif query.data == "tiktok_confirm":
         chat_id = query.message.chat_id
@@ -231,31 +246,15 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         payload = {
             "username": user_data[chat_id]['username'],
         }
-        return await add_request_to_queue(RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER, query, payload)
+        return await add_request_to_queue(update, context, RABBITMQ_QUEUE_TIKTOK_HUMAN_SCANNER, query, payload)
 
     elif query.data == "restart":
         return await restart(query, context)
 
     return await menu(update, context)
 
-def __get_user_id_from_update(update: Update):
-    return update.effective_user.id if hasattr(update, 'effective_user') else update.message.from_user.id
 
-def __get_user_info_from_update(update: Update):
-    user = update.effective_user
-    name_parts = []
-    if user.first_name:
-        name_parts.append(user.first_name)
-    if user.last_name:
-        name_parts.append(user.last_name)
-    if user.username:
-        name_parts.append('@' + user.username)
-    return {
-        "user_id": user.id,
-        "name": ' '.join(name_parts),
-    }
-
-async def add_request_to_queue(queue_name: str, query, payload):
+async def add_request_to_queue(update: Update, context: ContextTypes.DEFAULT_TYPE, queue_name: str, query, payload):
     user_id = query.from_user.id
     lang_code = user_lang.get(user_id, DEFAULT_LANGUAGE)
     try:
@@ -285,14 +284,14 @@ async def add_request_to_queue(queue_name: str, query, payload):
     except Exception as e:
         logger.error(f"{LOGGER_PREFIX} - adding to queue error: {str(e)}")
 
-    return MENU
+    return await menu(update, context)
 
 def t(user_id, key):
     lang = user_lang.get(user_id, DEFAULT_LANGUAGE)
     return translations.get(lang).get(key, key)
 
 
-if __name__ == '__main__':
+def main():
     app = ApplicationBuilder().token(TELEGRAM_HUMAN_SCANNER_AI_BOT_TOKEN).build()
 
     conv = ConversationHandler(
@@ -300,22 +299,27 @@ if __name__ == '__main__':
             CommandHandler("start", start)
         ],
         states={
-            MENU: [
-                CallbackQueryHandler(handle_menu, pattern="^(tiktok_human_scan|ig_human_scan|human_scan|info|feedback)$"),
-                CallbackQueryHandler(set_language, pattern="^lang_")
+            GENERAL: [
+                CallbackQueryHandler(set_language, pattern="^lang_"),
+                CallbackQueryHandler(handle_callback), # , pattern="^(tiktok_human_scan|ig_human_scan|human_scan|info|feedback|back)$"),
             ],
-            SET_FEEDBACK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_feedback)],
-            USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_username)],
-            CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_chats)],
-            CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$")],
+            TG_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, tg_get_username)],
+            TG_CHATS: [MessageHandler(filters.TEXT & ~filters.COMMAND, tg_get_chats)],
+            TG_CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(confirm|restart)$")],
             IG_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ig_get_username)],
             IG_CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(ig_confirm|restart)$")],
             TIKTOK_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, tiktok_get_username)],
             TIKTOK_CONFIRM: [CallbackQueryHandler(handle_confirmation, pattern="^(tiktok_confirm|restart)$")],
+            SET_FEEDBACK: [MessageHandler(filters.TEXT & ~filters.COMMAND, set_feedback)],
         },
         fallbacks=[
-            CallbackQueryHandler(restart, pattern="^restart$"),
+            CallbackQueryHandler(restart, pattern="^restart|back$"),
         ],
     )
     app.add_handler(conv)
+
     app.run_polling()
+
+
+if __name__ == '__main__':
+    main()

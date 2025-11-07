@@ -37,7 +37,7 @@ class HumanScannerConsumer(BaseConsumer):
     async def __send_message(chat_id: int, text: str, lang_code: str):
         text = text or 'No data'
         keyboard = [
-            [InlineKeyboardButton(f"🔄 {translations.get(lang_code).get('start_over')}", callback_data="restart")],
+            # [InlineKeyboardButton(f"🔄 {translations.get(lang_code).get('start_over')}", callback_data="restart")],
             [InlineKeyboardButton(f"📋 {translations.get(lang_code).get('share')}", switch_inline_query=f"{text}\n\nPowered by @HumanScannerAIBot")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)

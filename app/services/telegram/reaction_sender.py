@@ -6,8 +6,7 @@ from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import SendReactionRequest
-from telethon.tl.types import Channel, PeerChannel
-from telethon.tl.types import ReactionEmoji
+from telethon.tl.types import Channel, PeerChannel, ReactionEmoji, User
 
 from app.configs.logger import logger
 from app.db.queries.tg_post_reaction import get_reaction_by_post_id_bot_id
@@ -141,7 +140,7 @@ class ReactionSender:
                 tg_post_reaction = TgPostReaction(
                     channel=chat_name,
                     post_id=message.id,
-                    sender_name=get_name_from_user(message.sender),
+                    sender_name=get_name_from_user(message.sender) if isinstance(message.sender, User) else None,
                     bot_id=bot_client.bot.id,
                     reaction=reaction
                 )

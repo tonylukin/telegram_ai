@@ -3,7 +3,7 @@ import csv
 
 from fastapi.params import Depends
 
-from app.config import EXPORT_CHANNELS_PREDEFINED_QUERIES
+from app.config import EXPORT_CHANNELS_PREDEFINED_QUERIES, CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH
 from app.configs.logger import logger
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator
@@ -37,7 +37,7 @@ class ChatSearchExporter:
                     continue
 
                 for channel in query_channels_found:
-                    if channel.username and channel.participants_count > 1000 and not channel.broadcast:
+                    if channel.username and 1000 <= channel.participants_count <= 10000 and not channel.broadcast:
                         channels_found.append(('@' + channel.username, channel.title, channel.participants_count))
 
             except Exception as e:
@@ -48,7 +48,7 @@ class ChatSearchExporter:
             os.makedirs(output_dir, exist_ok=True)  # create folder if it doesn't exist
 
             # file_path = os.path.join(output_dir, f"chat_search_exporter_found_channels_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
-            file_path = os.path.join(output_dir, f"chat_search_exporter_found_channels.csv")
+            file_path = os.path.join(output_dir, f"{CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH.lstrip('data/')}")
             with open(file_path, mode="w", newline="", encoding="utf-8") as file:
                 writer = csv.writer(file)
                 for username, title, subscribers in channels_found:
