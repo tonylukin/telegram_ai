@@ -22,7 +22,7 @@ from app.services.telegram.helpers import is_user_in_group, get_chat_from_channe
 
 
 class ChatMessenger:
-    BOT_LIMIT = 5
+    BOT_LIMIT = 8
     MAX_CHANNELS_PER_BOT = 1
 
     def __init__(

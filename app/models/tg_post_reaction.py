@@ -6,8 +6,9 @@ from sqlalchemy import (
     ForeignKey,
     UniqueConstraint,
     func,
+    ARRAY
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.ext.mutable import MutableList
 from app.models.base import Base
 
 
@@ -17,13 +18,11 @@ class TgPostReaction(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     channel = Column(String(128), nullable=False)
     post_id = Column(Integer, nullable=False)
-    reaction = Column(String(16), nullable=False)
-    bot_id = Column(Integer, ForeignKey("bots.id"), nullable=False)
+    reactions = Column(MutableList.as_mutable(ARRAY(String)), nullable=True)
+    bot_ids = Column(MutableList.as_mutable(ARRAY(Integer)), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     sender_name = Column(String, nullable=True, default=None)
 
-    bot = relationship("Bot", back_populates="reactions")
-
     __table_args__ = (
-        UniqueConstraint("post_id", "channel", "bot_id", name="uq_tg_post_reactions_post_id_channel_bot_id"),
+        UniqueConstraint("post_id", "channel", name="uq_tg_post_reactions_post_id_channel"),
     )

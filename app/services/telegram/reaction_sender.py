@@ -9,7 +9,7 @@ from telethon.tl.functions.messages import SendReactionRequest
 from telethon.tl.types import Channel, PeerChannel, ReactionEmoji, User
 
 from app.configs.logger import logger
-from app.db.queries.tg_post_reaction import get_reaction_by_post_id_bot_id
+from app.db.queries.tg_post_reaction import get_reaction_by_post_id_and_channel
 from app.dependencies import get_db
 from app.models.tg_post_reaction import TgPostReaction
 from app.services.telegram.chat_searcher import ChatSearcher
@@ -67,7 +67,8 @@ class ReactionSender:
                         continue
 
                     chat_name = entity.username or str(entity.id)
-                    if get_reaction_by_post_id_bot_id(session=self._session, post_id=message.id, channel=chat_name, bot_id=bot_client.bot.id) is not None:
+                    tg_post_reaction = get_reaction_by_post_id_and_channel(session=self._session, channel=chat_name, post_id=message.id)
+                    if tg_post_reaction is not None and bot_client.bot.id in tg_post_reaction.bot_ids:
                         continue
 
                     await asyncio.sleep(min(current_chat_reactions_count, 1) * 30)  # DELAY!!!
@@ -80,14 +81,18 @@ class ReactionSender:
                     logger.info(f"[ReactionSender::__send_reactions_to_my_chats][{bot_client.get_name()}] Reacted to comment {message.id} in {entity.title}")
                     counter[entity.title] = counter.get(entity.title, 0) + 1
 
-                    tg_post_reaction = TgPostReaction(
-                        channel=chat_name,
-                        post_id=message.id,
-                        sender_name=get_name_from_user(message.sender),
-                        bot_id=bot_client.bot.id,
-                        reaction=reaction
-                    )
-                    self._session.add(tg_post_reaction)
+                    if tg_post_reaction is None:
+                        tg_post_reaction = TgPostReaction(
+                            channel=chat_name,
+                            post_id=message.id,
+                            sender_name=get_name_from_user(message.sender) if isinstance(message.sender, User) else None,
+                            bot_ids=[bot_client.bot.id],
+                            reactions=[reaction]
+                        )
+                        self._session.add(tg_post_reaction)
+                    else:
+                        tg_post_reaction.bot_ids.append(bot_client.bot.id)
+                        tg_post_reaction.reactions.append(reaction)
 
             except Exception as e:
                 logger.error(f"[ReactionSender::__send_reactions_to_my_chats][{bot_client.get_name()}] ⚠️ Failed to react {reaction} to comment {entity.title}: {e}")
@@ -122,7 +127,8 @@ class ReactionSender:
                         continue
 
                 chat_name = chat.username or str(chat.id)
-                if get_reaction_by_post_id_bot_id(session=self._session, channel=chat_name, post_id=message.id, bot_id=bot_client.bot.id) is not None:
+                tg_post_reaction = get_reaction_by_post_id_and_channel(session=self._session, channel=chat_name, post_id=message.id)
+                if tg_post_reaction is not None and bot_client.bot.id in tg_post_reaction.bot_ids:
                     continue
 
                 reaction = self._reaction if self._reaction is not None else random.choice(self.REACTIONS)
@@ -137,14 +143,19 @@ class ReactionSender:
                 except Exception as e:
                     logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ⚠️ Failed to react {reaction}: {e}")
 
-                tg_post_reaction = TgPostReaction(
-                    channel=chat_name,
-                    post_id=message.id,
-                    sender_name=get_name_from_user(message.sender) if isinstance(message.sender, User) else None,
-                    bot_id=bot_client.bot.id,
-                    reaction=reaction
-                )
-                self._session.add(tg_post_reaction)
+                if tg_post_reaction is None:
+                    tg_post_reaction = TgPostReaction(
+                        channel=chat_name,
+                        post_id=message.id,
+                        sender_name=get_name_from_user(message.sender) if isinstance(message.sender, User) else None,
+                        bot_ids=[bot_client.bot.id],
+                        reactions=[reaction]
+                    )
+                    self._session.add(tg_post_reaction)
+                else:
+                    tg_post_reaction.bot_ids.append(bot_client.bot.id)
+                    tg_post_reaction.reactions.append(reaction)
+
         except Exception as e:
             logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ❌ Chat {chat.title} error: {e}")
 
