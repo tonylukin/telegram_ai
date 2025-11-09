@@ -99,8 +99,8 @@ class ReactionSender:
 
         return {bot_client.get_name(): counter}
 
-    async def __make_reactions_for_chat(self, bot_client: BotClient, chat: Channel, usernames: list[str]|list[int] = None) -> dict[str, dict[str, int]]:
-        counter = {}
+    async def __make_reactions_for_chat(self, bot_client: BotClient, chat: Channel, usernames: list[str]|list[int] = None) -> dict[str, dict]:
+        counter = reaction_data = {}
         client = bot_client.client
         try:
             logger.info(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] 🧭 Sending reaction for: {chat.title}")
@@ -143,23 +143,18 @@ class ReactionSender:
                 except Exception as e:
                     logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ⚠️ Failed to react {reaction}: {e}")
 
-                if tg_post_reaction is None:
-                    tg_post_reaction = TgPostReaction(
-                        channel=chat_name,
-                        post_id=message.id,
-                        sender_name=get_name_from_user(message.sender) if isinstance(message.sender, User) else None,
-                        bot_ids=[bot_client.bot.id],
-                        reactions=[reaction]
-                    )
-                    self._session.add(tg_post_reaction)
-                else:
-                    tg_post_reaction.bot_ids.append(bot_client.bot.id)
-                    tg_post_reaction.reactions.append(reaction)
+                reaction_data = {
+                    'channel': chat_name,
+                    'post_id': message.id,
+                    'sender_name': get_name_from_user(message.sender) if isinstance(message.sender, User) else None,
+                    'bot_ids': [bot_client.bot.id],
+                    'reactions': [reaction]
+                }
 
         except Exception as e:
             logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ❌ Chat {chat.title} error: {e}")
 
-        return {bot_client.get_name(): counter}
+        return {bot_client.get_name(): {'counter': counter, 'reaction_data': reaction_data}}
 
     async def __search_chats(self, bot_client: BotClient, query: str, usernames: list[str] | list[int] = None) -> dict[str, dict[str, int]]:
         client = bot_client.client
@@ -176,8 +171,12 @@ class ReactionSender:
             except Exception as e:
                 logger.error(f"[ReactionSender::__search_chats][{bot_client.get_name()}] Search chats error: {e}")
 
-        self._session.flush()
-        return result
+        counter_data = {}
+        for bot_name in result:
+            counter_data[bot_name] = result[bot_name]['counter']
+            await self.__save_reaction_data(result[bot_name]['reaction_data'])
+
+        return counter_data
 
     async def __send_to_specific_chats(self, bot_client: BotClient, chat_names: list[str], usernames: list[str] | list[int] = None) -> dict[str, dict[str, int]]:
         client = bot_client.client
@@ -201,8 +200,12 @@ class ReactionSender:
             except Exception as e:
                 logger.error(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Search chats error: {e}")
 
-        self._session.flush()
-        return result
+        counter_data = {}
+        for bot_name in result:
+            counter_data[bot_name] = result[bot_name]['counter']
+            await self.__save_reaction_data(result[bot_name]['reaction_data'])
+
+        return counter_data
 
     async def __start_client(self, bot_client: BotClient) -> dict[str, dict[str, int]]:
         await self._clients_creator.start_client(bot_client, task_name='send_reactions')
@@ -217,6 +220,32 @@ class ReactionSender:
         await self._clients_creator.disconnect_client(bot_client)
         logger.info(f"[ReactionSender::__start_client][{bot_client.get_name()}] Reactions sent: {result}")
         return result
+
+    async def __save_reaction_data(self, reaction_data: dict) -> None:
+        if not reaction_data:
+            return
+
+        tg_post_reaction = get_reaction_by_post_id_and_channel(
+            session=self._session,
+            channel=reaction_data['channel'],
+            post_id=reaction_data['post_id']
+        )
+        if tg_post_reaction is None:
+            tg_post_reaction = TgPostReaction(
+                channel=reaction_data['channel'],
+                post_id=reaction_data['post_id'],
+                sender_name=reaction_data['sender_name'],
+                bot_ids=reaction_data['bot_ids'],
+                reactions=reaction_data['reactions']
+            )
+            self._session.add(tg_post_reaction)
+        else:
+            for i, bot_id in enumerate(reaction_data['bot_ids']):
+                if bot_id not in tg_post_reaction.bot_ids:
+                    tg_post_reaction.bot_ids.append(bot_id)
+                    tg_post_reaction.reactions.append(reaction_data['reactions'][i])
+
+        self._session.flush()
 
     async def send_reactions(self, query: str = None, reaction: str = None, chat_names: list[str] = None, usernames: list[str] | list[int] = None) -> list[dict[str, int]]:
         self._query = query
