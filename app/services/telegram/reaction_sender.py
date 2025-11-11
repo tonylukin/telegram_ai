@@ -154,6 +154,9 @@ class ReactionSender:
         except Exception as e:
             logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ❌ Chat {chat.title} error: {e}")
 
+        if len(counter) == 0:
+            return {}
+
         return {bot_client.get_name(): {'counter': counter, 'reaction_data': reaction_data}}
 
     async def __search_chats(self, bot_client: BotClient, query: str, usernames: list[str] | list[int] = None) -> dict[str, dict[str, int]]:
