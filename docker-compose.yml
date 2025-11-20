@@ -15,6 +15,7 @@ services:
       - ./data:/app/data
       - ./app/configs/data:/app/app/configs/data
       - ./app/configs/settings.local.json:/app/app/configs/settings.local.json
+      - ./chroma_db:/app/chroma_db
     depends_on:
       - db
 
