@@ -21,7 +21,7 @@ class ReactionSender:
     MAX_REACTIONS_PER_CHAT: Final[int] = 5
     MAX_MESSAGES_PER_CHAT: Final[int] = 100
     REACTIONS: Final[tuple[str, ...]] = ("❤️", "🔥", "👍", "💯", "🙏", "👀", "😁", "🎉", "🤔", "👏", "🥰")
-    BATCH_SIZE: Final[int] = 5
+    BATCH_SIZE: Final[int] = 3
     LAST_MESSAGES_COUNT_FOR_RANDOM_REACTIONS: Final[int] = 20
 
     def __init__(

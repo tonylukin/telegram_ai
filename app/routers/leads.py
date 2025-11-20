@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.params import Depends
 
 from app.services.leads.generator_from_channels import GeneratorFromChannels
+from app.services.rags.hairdresser.main import run_workflow
 
 router = APIRouter(prefix="/leads")
 
@@ -14,12 +15,37 @@ async def generate_leads_from_channels(request: Request, lead_generator: Generat
 
         result = await lead_generator.generate_from_telegram_channels(
             chats=data.get('chats'),
-            condition=data.get('condition'),
+            workflow=data.get('workflow'),
             except_users=data.get('except_users', None),
             answers=data.get('answers', None),
             bot_roles=data.get('bot_roles', None),
         )
 
         return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/test-rag")
+async def test_rag():
+    try:
+        queries = [
+            "Знаю точно, что @KatyHairGuru этот мастер работает в Ирвайне в салоне. И судя по отзывам моей подруги, очень даже хорошо)",
+            "Посоветуйте специалиста кто делает ботокс - филеры- нитки - ну и все остальное что поможет стать красавицей",
+            "Сходила к Гале, очень крутой мастер. За 1 процедуру исправила мне мои поврежденные волосы, теперь у меня легкие, гладкие и шелковистые",
+            "Привет! Меня зовут **Марина**, я дипломированный мастер по наращиванию волос ✨Работаю в Newport Beach (Orange County)",
+            "Хочу покрасить волосы в красный цвет, посоветуйте мастера",
+            "Нужен мастер по стрижке мужских волос в Лос-Анджелесе",
+            "Ищу салон красоты для окрашивания волос в блонд",
+            "Девчата - Подскажите мастера по волосам в салоне в Irvine? Не на дому. Благодарю", #pos
+            "Девушки, кто-нибудь может макияж и прическу сделать в следующую субботу 15 ноября в районе 12?", #pos
+            "Нужна модель на окрашивание. Оплата за материал.", #neg
+            "Лицензированный мастер парикмахер Алёна Петрова Звони чтобы узнать подробнее по телефону", #neg
+        ]
+        output = {}
+        for query in queries:
+            result = run_workflow(query)
+            result_value = result.get('output', {})
+            output.setdefault(result_value, []).append(query)
+        return {"status": "ok", "result": output}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

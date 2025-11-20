@@ -1,11 +1,12 @@
 import random
 import asyncio
-import hashlib
+import re
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
+from collections.abc import Callable
 
-from app.config import is_dev, GENERATOR_FROM_CHANNEL_AI_PROMPT
+from app.config import is_dev
 from app.configs.logger import logger
 from app.db.queries.tg_lead import get_tg_lead_by_post_id
 from app.dependencies import get_ai_client, get_db, get_open_ai_client
@@ -46,7 +47,7 @@ class GeneratorFromChannels:
     async def generate_from_telegram_channels(
             self,
             chats: list[str],
-            condition: str,
+            workflow: str,
             except_users: list[str] = None,
             answers: list[str] = None,
             bot_roles: list[str] = None,
@@ -57,6 +58,10 @@ class GeneratorFromChannels:
         if not bot_clients:
             raise Exception('[GeneratorFromChannels::generate_from_telegram_channels]: No bots found')
 
+        rag_workflow = self.__get_workflow(workflow)
+        if not rag_workflow:
+            raise Exception('[GeneratorFromChannels::generate_from_telegram_channels]: Incorrect condition/workflow name')
+
         await self._clients_creator.start_client(bot_clients[0], task_name='generate_from_telegram_channels')
         await join_chats(client=bot_clients[0].client, chats_to_join=chats)
         chat_messages_list = await self._user_message_search.get_last_messages_from_chats(client=bot_clients[0].client, chats=chats, limit=50)
@@ -64,7 +69,6 @@ class GeneratorFromChannels:
 
         for chat_messages in chat_messages_list:
             try:
-                message_to_id_map = {}
                 message_texts = []
                 chat = chat_messages.get('chat')
                 messages = chat_messages.get('messages')
@@ -75,15 +79,12 @@ class GeneratorFromChannels:
                     if message.text and message.text.strip() and message.id:
                         if message.sender and (message.sender.username and '@' + message.sender.username.lower() in except_users or message.sender.id in except_users):
                             continue
-                        text_hash = hashlib.md5(message.text.encode("utf-8")).hexdigest()
-                        message_to_id_map[text_hash] = (message.id, get_name_from_user(message.sender))
-                        message_texts.append(message.text)
+
+                        message_texts.append(f'{message.text} [{message.id},{get_name_from_user(message.sender)}]')
                 try:
-                    matched_list = (self
-                                    ._ai_client
-                                    .generate_text(prompt=GENERATOR_FROM_CHANNEL_AI_PROMPT.format(messages=message_texts, condition=condition))
-                                    .split('<br>')
-                                    )
+                    message_texts.reverse()
+                    output = rag_workflow(message_texts).get('output', '')
+                    matched_list = [output]
                 except Exception as e:
                     logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] AI error: {e}")
                     matched_list = []
@@ -95,14 +96,13 @@ class GeneratorFromChannels:
                     if not matched_message:
                         continue
 
-                    # response_message = self._ai_client.generate_text(
-                    #     prompt=answer_prompt.format(message=matched_message)
-                    # )
-                    text_hash = hashlib.md5(matched_message.encode("utf-8")).hexdigest()
-                    if text_hash not in message_to_id_map:
+                    # parse post_id and sender_name from the trailing pattern: [..., ...]
+                    match = re.search(r'\[(\d+),([^\]]+)\]\s*$', matched_message)
+                    if not match:
+                        logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] parse error: {matched_message}")
                         continue
-
-                    post_id, sender_name = message_to_id_map[text_hash]
+                    post_id = int(match.group(1))
+                    sender_name = match.group(2).strip()
                     if get_tg_lead_by_post_id(session=self._session, post_id=post_id):
                         logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] lead exists, skip message #{post_id}: {matched_message}")
                         continue
@@ -145,6 +145,12 @@ class GeneratorFromChannels:
 
         await self._clients_creator.disconnect_client(bot_clients[0])
         return result
+
+    def __get_workflow(self, name: str) -> Callable | None:
+        if name == 'hairdresser':
+            from app.services.rags.hairdresser.main import run_workflow
+            return run_workflow
+        return None
 
     def __notify_about_lead(self, message: str):
         asyncio.create_task(

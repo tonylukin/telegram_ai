@@ -8,3 +8,4 @@ sessions
 logs
 data
 settings.local.json
+chroma_db

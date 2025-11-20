@@ -18,3 +18,7 @@ psycopg2-binary
 google-generativeai>=0.3.2
 aio_pika
 apify-client
+langgraph
+langchain_openai
+langchain_core
+chromadb
