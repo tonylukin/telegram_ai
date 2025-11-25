@@ -8,7 +8,8 @@ from telethon.tl.types import PeerChannel, PeerUser, User, Chat, Channel
 
 from app.config import is_dev
 from app.configs.logger import logger
-from app.services.telegram.helpers import get_instance_by_username
+from app.services.telegram.clients_creator import BotClient
+from app.services.telegram.helpers import get_instance_by_username, get_channel_entity_by_username_or_id, join_chats
 
 
 class ChatMessages(TypedDict):
@@ -138,3 +139,82 @@ class UserMessagesSearch:
     @staticmethod
     async def get_last_messages_from_chats(client: TelegramClient, chats: list[str], limit: int = 50) -> list[ChatMessages]:
         return await UserMessagesSearch.get_user_messages_from_chats(client=client, chats=chats, limit=limit)
+
+    @staticmethod
+    async def get_user_messages_like_status_in_channels(
+            bot_client: BotClient,
+            channel_usernames: list[str],
+            user: str,
+            limit: int = 10
+    ) -> dict[str, list[dict]]:
+        """
+        Return dict[channel_username] -> list of user's last messages (up to limit) each with like status.
+        like: True  -> at least one like emoji (e.g. 👍) and no unlike emoji
+              False -> at least one unlike emoji (e.g. 👎) and no like emoji
+              None  -> no reactions or mixed/other reactions
+        """
+        result: dict[str, list[dict]] = {}
+
+        LIKE_EMOJIS = {"👍"}
+        UNLIKE_EMOJIS = {"👎"}
+        client = bot_client.client
+
+        for channel_username in channel_usernames:
+            try:
+                channel = await get_channel_entity_by_username_or_id(client, channel_username)
+                if isinstance(channel, User) or channel is None:
+                    continue
+
+                messages_list: list[dict] = []
+
+                user_entity = await client.get_entity(user)
+                await join_chats(client, [channel_username])
+                async for msg in client.iter_messages(channel, from_user=user_entity, limit=limit):
+                    if not isinstance(msg, Message) or not msg.message:
+                        continue
+
+                    like_status: bool | None = None
+                    if msg.reactions:
+                        emoticons: set[str] = set()
+
+                        recent = getattr(msg.reactions, "recent_reactions", None) or []
+                        for r in recent:
+                            try:
+                                emoticon = getattr(getattr(r, "reaction", None), "emoticon", None)
+                                if emoticon:
+                                    emoticons.add(emoticon)
+                            except Exception:
+                                continue
+
+                        results = getattr(msg.reactions, "results", None) or []
+                        for rc in results:
+                            try:
+                                emoticon = getattr(getattr(rc, "reaction", None), "emoticon", None)
+                                if emoticon:
+                                    emoticons.add(emoticon)
+                            except Exception:
+                                continue
+
+                        has_like = bool(emoticons & LIKE_EMOJIS)
+                        has_unlike = bool(emoticons & UNLIKE_EMOJIS)
+
+                        if has_like and not has_unlike:
+                            like_status = True
+                        elif has_unlike and not has_like:
+                            like_status = False
+                        else:
+                            like_status = None
+
+                    messages_list.append({
+                        "id": msg.id,
+                        "message": msg.message,
+                        "like": like_status
+                    })
+
+                if messages_list:
+                    result[channel_username] = messages_list
+            except Exception as e:
+                logger.error(
+                    f"[UserMessagesSearch::get_user_messages_like_status_in_channels][{bot_client.get_name()}] Error processing {channel_username}: {e}")
+
+        return result

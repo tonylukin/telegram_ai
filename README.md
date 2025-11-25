@@ -104,6 +104,14 @@ curl -X 'POST' 'http://127.0.0.1:8000/leads/from-channels' \
      -d '{"chats": [""], "condition": "", "answers": [""]}'
 ```
 
+### Self-tuning from channel leads
+```bash
+curl -X 'POST' 'http://127.0.0.1:8000/leads/self-tuning' \  
+     -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer 123' \
+     -d '{"channel_name": "", "user": "", "workflow": ""}'
+```
+
 ### Killing fastAPI debugger
 ```bash
 lsof -i tcp:8000

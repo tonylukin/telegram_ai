@@ -97,7 +97,7 @@ class GeneratorFromChannels:
                         continue
 
                     # parse post_id and sender_name from the trailing pattern: [..., ...]
-                    match = re.search(r'\[(\d+),([^\]]+)\]\s*$', matched_message)
+                    match = re.search(r'\[(\d+),([^\]]+)\].*$', matched_message)
                     if not match:
                         logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] parse error: {matched_message}")
                         continue
@@ -147,6 +147,7 @@ class GeneratorFromChannels:
         return result
 
     def __get_workflow(self, name: str) -> Callable | None:
+        # todo make a service to get workflows by name
         if name == 'hairdresser':
             from app.services.rags.hairdresser.main import run_workflow
             return run_workflow

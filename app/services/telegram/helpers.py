@@ -217,3 +217,18 @@ def get_name_from_user(user: User | None) -> str:
     else:
         sender_name = "Unknown"
     return sender_name
+
+async def get_channel_entity_by_username_or_id(client: TelegramClient, channel_username: str) -> Channel | None:
+    try:
+        raw = channel_username.strip()
+        if raw.startswith('-100') and raw[4:].isdigit():
+            channel = await client.get_entity(PeerChannel(int(raw[4:])))
+        elif raw.startswith('-') and raw[1:].isdigit():
+            channel = await client.get_entity(PeerChannel(int(raw)))
+        elif raw.isdigit():
+            channel = await client.get_entity(PeerChannel(int(raw)))
+        else:
+            channel = await client.get_entity(raw)
+        return channel
+    except Exception:
+        return None
