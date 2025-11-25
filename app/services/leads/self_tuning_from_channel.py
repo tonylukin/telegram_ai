@@ -40,7 +40,7 @@ class SelfTuningFromChannel:
                         negative_counter += 1
 
         except Exception as e:
-            logger.error(f"Error during self-tuning: {e}")
+            logger.error(f"Error during self-tuning: {str(e)}")
             return None
         finally:
             await self._clients_creator.disconnect_client(bot_clients[0])
