@@ -31,7 +31,11 @@ class SelfTuningFromChannel:
             await self._clients_creator.start_client(bot_clients[0], task_name='self_tuning_from_channel')
 
             channel_messages_data = await self._user_messages_search.get_user_messages_like_status_in_channels(bot_client=bot_clients[0], channel_usernames=[channel_name], user=user)
-            for message_data in channel_messages_data[channel_name]:
+            messages_list = channel_messages_data.get(channel_name)
+            if not messages_list:
+                logger.info(f"No messages found for user '{user}' in channel '{channel_name}'")
+                return None
+            for message_data in messages_list:
                 if message_data.get('like') is True:
                     if store.add_positive(message_data.get('message')):
                         positive_counter += 1
@@ -40,7 +44,7 @@ class SelfTuningFromChannel:
                         negative_counter += 1
 
         except Exception as e:
-            logger.error(f"Error during self-tuning: {str(e)}")
+            logger.error(f"Error during self-tuning: {e}")
             return None
         finally:
             await self._clients_creator.disconnect_client(bot_clients[0])
