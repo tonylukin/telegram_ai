@@ -232,3 +232,6 @@ async def get_channel_entity_by_username_or_id(client: TelegramClient, channel_u
         return channel
     except Exception:
         return None
+
+def trim_session_string(session_string: str) -> str:
+    return session_string.replace('sessions/', '').replace('.session', '')

@@ -9,7 +9,8 @@ from telethon.tl.types import PeerChannel, PeerUser, User, Chat, Channel
 from app.config import is_dev
 from app.configs.logger import logger
 from app.services.telegram.clients_creator import BotClient
-from app.services.telegram.helpers import get_instance_by_username, get_channel_entity_by_username_or_id, join_chats
+from app.services.telegram.helpers import get_instance_by_username, get_channel_entity_by_username_or_id, join_chats, \
+    trim_session_string
 
 
 class ChatMessages(TypedDict):
@@ -54,7 +55,11 @@ class UserMessagesSearch:
                     'messages': messages,
                 })
             except Exception as e:
-                logger.error(f"[UserMessagesSearch::get_user_messages_from_chats][{client.session.filename}] Error accessing chat {chat}: {e}")
+                filename = trim_session_string(client.session.filename)
+                if str(e).startswith("The channel specified is private and you lack permission"):
+                    logger.warning(f"[UserMessagesSearch::get_user_messages_from_chats][{filename}] Error[{type(e).__name__}] accessing chat {chat}: {e}")
+                else:
+                    logger.error(f"[UserMessagesSearch::get_user_messages_from_chats][{filename}] Error accessing chat {chat}: {e}")
 
         return messages_by_chat
 
@@ -145,7 +150,7 @@ class UserMessagesSearch:
             bot_client: BotClient,
             channel_usernames: list[str],
             user: str,
-            limit: int = 10
+            limit: int = 30
     ) -> dict[str, list[dict]]:
         """
         Return dict[channel_username] -> list of user's last messages (up to limit) each with like status.

@@ -13,7 +13,7 @@ async def generate_leads_from_channels(request: Request, lead_generator: Generat
     try:
         data = await request.json()
         if data.get('chat_id'):
-            lead_generator.set_notification_credentials(chat_id=data.get('chat_id'), bot_token=data.get('bot_token', None))
+            lead_generator.set_notification_credentials(chat_id=data.get('notification_chat_id'), bot_token=data.get('bot_token', None))
 
         result = await lead_generator.generate_from_telegram_channels(
             chats=data.get('chats'),
