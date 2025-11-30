@@ -100,6 +100,10 @@ class GeneratorFromChannels:
                     match = re.search(r'\[(\d+),([^\]]+)\].*$', matched_message)
                     if not match:
                         logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] parse error: {matched_message}")
+                        if self._notify_about_leads:
+                            message = f'Found new lead in chat @{chat.username} [{chat.id}]\n'
+                            message += f'<blockquote>{matched_message}</blockquote>\n\n'
+                            self.__notify_about_lead(message)
                         continue
                     post_id = int(match.group(1))
                     sender_name = match.group(2).strip()
@@ -129,8 +133,9 @@ class GeneratorFromChannels:
                     self._session.add(tg_lead)
                     if self._notify_about_leads:
                         message = f'Found new lead from {sender_name} in chat @{chat.username} [{chat.id}]\n'
-                        message += f'<blockquote>{matched_message}</blockquote>\n\n'
-                        message += f'<strong>Answer</strong>:\n{answer}'
+                        message += f'<blockquote>{matched_message}</blockquote>'
+                        if answer:
+                            message += f'\n\n<strong>Answer</strong>:\n{answer}'
                         self.__notify_about_lead(message)
 
                     result[chat_key].append(matched_message)
