@@ -25,16 +25,16 @@ llm = ChatOpenAI(model=OPEN_AI_TEXT_MODEL)
 prompt_tpl = PromptTemplate.from_template("""
 You must classify the messages related to "{condition}".
 
-Positive examples:
+Positive examples (separated by '<br>'):
 {positive}
 
-Negative examples:
+Negative examples (separated by '<br>'):
 {negative}
 
 Messages are separated by '<br>':
 {messages}
 
-Return first message that is "positive", if there is no such message return empty string.
+Return first message that is "positive" without changing original message, if there is no such message return empty string.
 """)
 
 
@@ -51,8 +51,8 @@ def prompt_node(state: State):
     msg = prompt_tpl.format(
         condition=LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
         messages=state.messages,
-        positive="\n".join(state.positive),
-        negative="\n".join(state.negative)
+        positive="<br>".join(state.positive),
+        negative="<br>".join(state.negative)
     )
     return {"prompt": msg}
 

@@ -1,3 +1,4 @@
+import re
 from fastapi.params import Depends
 
 from app.configs.logger import logger
@@ -37,10 +38,10 @@ class SelfTuningFromChannel:
                 return None
             for message_data in messages_list:
                 if message_data.get('like') is True:
-                    if store.add_positive(message_data.get('message')):
+                    if store.add_positive(self.__sanitize_text(message_data.get('message'))):
                         positive_counter += 1
                 if message_data.get('like') is False:
-                    if store.add_negative(message_data.get('message')):
+                    if store.add_negative(self.__sanitize_text(message_data.get('message'))):
                         negative_counter += 1
 
         except Exception as e:
@@ -60,3 +61,7 @@ class SelfTuningFromChannel:
             from app.services.rags.hairdresser.rag_seed_store import RAGSeedStore
             return RAGSeedStore()
         return None
+
+    def __sanitize_text(self, text: str) -> str:
+        sanitized_text = re.search(r'^Found new lead.*?\]\s*(.*?)\s*(\[\d+,[^\]]*\])*\s*$', text, re.S)
+        return sanitized_text.group(1) if sanitized_text else text
