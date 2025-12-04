@@ -21,18 +21,19 @@ class State(BaseModel):
 store = RAGSeedStore()
 # llm = ChatOpenAI(model="gpt-4o-mini")
 llm = ChatOpenAI(model=OPEN_AI_TEXT_MODEL)
+SEPARATOR = "<br>"
 
 prompt_tpl = PromptTemplate.from_template("""
 You must classify the messages related to "{condition}".
 
-Positive examples (separated by '<br>'):
-{positive}
+Positive examples (separated by '{separator}'):
+[{positive}]
 
-Negative examples (separated by '<br>'):
-{negative}
+Negative examples (separated by '{separator}'):
+[{negative}]
 
-Messages are separated by '<br>':
-{messages}
+Messages are separated by '{separator}':
+[{messages}]
 
 Return first message that is "positive" without changing original message, if there is no such message return empty string.
 """)
@@ -40,7 +41,7 @@ Return first message that is "positive" without changing original message, if th
 
 # ------- NODES -------
 def retrieve_node(state: State):
-    examples = store.query('<br>'.join(state.messages), k=3)
+    examples = store.query("\n\n".join(state.messages), k=3)
     return {
         "positive": examples["positive"],
         "negative": examples["negative"],
@@ -50,9 +51,10 @@ def retrieve_node(state: State):
 def prompt_node(state: State):
     msg = prompt_tpl.format(
         condition=LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
-        messages=state.messages,
-        positive="<br>".join(state.positive),
-        negative="<br>".join(state.negative)
+        messages=SEPARATOR.join(state.messages),
+        positive=SEPARATOR.join(state.positive),
+        negative=SEPARATOR.join(state.negative),
+        separator=SEPARATOR,
     )
     return {"prompt": msg}
 
