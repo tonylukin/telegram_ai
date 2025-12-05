@@ -93,7 +93,7 @@ class GeneratorFromChannels:
                 result[chat_key] = []
 
                 for matched_message in matched_list:
-                    if not matched_message or matched_message == '""' or matched_message == "''":
+                    if not matched_message or matched_message == '""' or matched_message == "''" or matched_message.lower() == 'none':
                         continue
 
                     # parse post_id and sender_name from the trailing pattern: [..., ...]

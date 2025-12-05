@@ -41,7 +41,7 @@ Return first message that is "positive" without changing original message, if th
 
 # ------- NODES -------
 def retrieve_node(state: State):
-    examples = store.query("\n\n".join(state.messages), k=3)
+    examples = store.query("\n\n".join(state.messages), k=10)
     return {
         "positive": examples["positive"],
         "negative": examples["negative"],
