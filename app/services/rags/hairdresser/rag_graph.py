@@ -24,18 +24,22 @@ llm = ChatOpenAI(model=OPEN_AI_TEXT_MODEL)
 SEPARATOR = "<br>"
 
 prompt_tpl = PromptTemplate.from_template("""
-You must classify the messages related to "{condition}".
+Даны сообщения людей на разные темы.
+Нужно выбрать сообщения ТОЛЬКО из списка сообщений, используя условие: "{condition}".
 
-Positive examples (separated by '{separator}'):
-[{positive}]
+Список сообщений, сообщения разделены символом '{separator}':
+{messages}
+**конец списка сообщений**
 
-Negative examples (separated by '{separator}'):
-[{negative}]
+Список положительных примеров (разделены символом '{separator}'), из них НЕ нужно выбирать сообщения:
+{positive}
+**конец списка положительных примеров**
 
-Messages are separated by '{separator}':
-[{messages}]
+Отрицательные примеры (разделены символом '{separator}'):
+{negative}
+**конец списка отрицательных примеров**
 
-Return first message that is "positive" without changing original message, if there is no such message return empty string.
+Верни первое сообщение, которое является "положительным", не изменяя исходный текст сообщения; если такого сообщения нет, верни пустую строку.
 """)
 
 
@@ -51,9 +55,9 @@ def retrieve_node(state: State):
 def prompt_node(state: State):
     msg = prompt_tpl.format(
         condition=LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
-        messages=SEPARATOR.join(state.messages),
-        positive=SEPARATOR.join(state.positive),
-        negative=SEPARATOR.join(state.negative),
+        messages=f"\n{SEPARATOR}\n".join(state.messages),
+        positive=f"\n{SEPARATOR}\n".join(state.positive),
+        negative=f"\n{SEPARATOR}\n".join(state.negative),
         separator=SEPARATOR,
     )
     return {"prompt": msg}

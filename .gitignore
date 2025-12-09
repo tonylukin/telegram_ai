@@ -9,3 +9,4 @@ logs
 data
 settings.local.json
 chroma_db
+.DS_Store
