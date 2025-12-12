@@ -1,3 +1,4 @@
+import json
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel
@@ -21,31 +22,28 @@ class State(BaseModel):
 store = RAGSeedStore()
 # llm = ChatOpenAI(model="gpt-4o-mini")
 llm = ChatOpenAI(model=OPEN_AI_TEXT_MODEL)
-SEPARATOR = "<br>"
 
 prompt_tpl = PromptTemplate.from_template("""
 Даны сообщения людей на разные темы.
 Нужно выбрать сообщения ТОЛЬКО из списка сообщений, используя условие: "{condition}".
 
-Список сообщений, сообщения разделены символом '{separator}':
-{messages}
-**конец списка сообщений**
+Список сообщений в формате JSON {{"text": "текст сообщения", "id": "айди сообщения", "name": "имя отправителя"}}:
+[{messages}]
 
-Список положительных примеров (разделены символом '{separator}'), из них НЕ нужно выбирать сообщения:
+Список положительных примеров  в формате JSON, из них НЕ нужно выбирать сообщения:
 {positive}
-**конец списка положительных примеров**
 
-Отрицательные примеры (разделены символом '{separator}'):
+Отрицательные примеры  в формате JSON, из них НЕ нужно выбирать сообщения:
 {negative}
-**конец списка отрицательных примеров**
 
-Верни первое сообщение, которое является "положительным", не изменяя исходный текст сообщения; если такого сообщения нет, верни пустую строку.
+Верни первое сообщение из списка, которое удовлетворяет указанному условию в формате JSON с той же структурой {{"text", "id", "name"}}. 
+Eсли такого сообщения нет, верни пустую строку.
 """)
 
 
 # ------- NODES -------
 def retrieve_node(state: State):
-    examples = store.query("\n\n".join(state.messages), k=10)
+    examples = store.query("\n\n".join([json.loads(m)["text"] for m in state.messages]), k=10)
     return {
         "positive": examples["positive"],
         "negative": examples["negative"],
@@ -55,10 +53,9 @@ def retrieve_node(state: State):
 def prompt_node(state: State):
     msg = prompt_tpl.format(
         condition=LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
-        messages=f"\n{SEPARATOR}\n".join(state.messages),
-        positive=f"\n{SEPARATOR}\n".join(state.positive),
-        negative=f"\n{SEPARATOR}\n".join(state.negative),
-        separator=SEPARATOR,
+        messages=','.join(state.messages),
+        positive=json.dumps(state.positive, ensure_ascii=False),
+        negative=json.dumps(state.negative, ensure_ascii=False),
     )
     return {"prompt": msg}
 

@@ -1,12 +1,13 @@
 import random
 import asyncio
 import re
+import json
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from collections.abc import Callable
 
-from app.config import is_dev
+from app.config import is_dev, is_prod
 from app.configs.logger import logger
 from app.db.queries.tg_lead import get_tg_lead_by_post_id
 from app.dependencies import get_ai_client, get_db, get_open_ai_client
@@ -80,10 +81,18 @@ class GeneratorFromChannels:
                         if message.sender and (message.sender.username and '@' + message.sender.username.lower() in except_users or message.sender.id in except_users):
                             continue
 
-                        message_texts.append(f'{message.text} [{message.id},{get_name_from_user(message.sender)}]')
+                        message_texts.append(json.dumps(
+                            {"text": message.text, "id": message.id, "name": get_name_from_user(message.sender)},
+                            ensure_ascii=False)
+                        )
                 try:
                     message_texts.reverse()
                     output = rag_workflow(message_texts).get('output', '')
+                    if output and isinstance(output, str):
+                        try:
+                            output = json.loads(output)
+                        except Exception:
+                            pass
                     matched_list = [output]
                 except Exception as e:
                     logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] AI error: {e}")
@@ -93,20 +102,20 @@ class GeneratorFromChannels:
                 result[chat_key] = []
 
                 for matched_message in matched_list:
-                    if not matched_message or matched_message == '""' or matched_message == "''" or matched_message.lower() == 'none':
+                    if not matched_message or matched_message == '""' or matched_message == "''" or (isinstance(matched_message, str) and matched_message.lower() == 'none'):
                         continue
 
-                    # parse post_id and sender_name from the trailing pattern: [..., ...]
-                    match = re.search(r'\[(\d+),([^\]]+)\].*$', matched_message)
-                    if not match:
-                        logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] parse error: {matched_message}")
+                    if not isinstance(matched_message, dict):
+                        logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] JSON parse error: {matched_message}")
                         if self._notify_about_leads:
                             message = f'Found new lead in chat @{chat.username} [{chat.id}]\n'
                             message += f'<blockquote>{matched_message}</blockquote>\n\n'
                             self.__notify_about_lead(message)
                         continue
-                    post_id = int(match.group(1))
-                    sender_name = match.group(2).strip()
+
+                    text = matched_message.get('text')
+                    post_id = matched_message.get('id')
+                    sender_name = matched_message.get('name')
                     if get_tg_lead_by_post_id(session=self._session, post_id=post_id):
                         logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] lead exists, skip message #{post_id}: {matched_message}")
                         continue
@@ -125,20 +134,20 @@ class GeneratorFromChannels:
 
                     tg_lead = TgLead(
                         channel=chat.username or chat.id,
-                        message=matched_message,
+                        message=text,
                         answer=answer,
                         post_id=post_id,
                         bot_id=bot_clients[0].bot.id,
                     )
                     self._session.add(tg_lead)
-                    if self._notify_about_leads:
+                    if self._notify_about_leads and is_prod():
                         message = f'Found new lead from {sender_name} in chat @{chat.username} [{chat.id}]\n'
-                        message += f'<blockquote>{matched_message}</blockquote>'
+                        message += f'<blockquote>{text}</blockquote>'
                         if answer:
                             message += f'\n\n<strong>Answer</strong>:\n{answer}'
                         self.__notify_about_lead(message)
 
-                    result[chat_key].append(matched_message)
+                    result[chat_key].append(text)
 
             except Exception as e:
                 logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] error: {e}")
