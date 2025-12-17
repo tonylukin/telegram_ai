@@ -9,7 +9,7 @@ from telethon.tl.types import Channel, PeerChannel, Message, MessageService
 from app.config import AI_POST_TEXT_TO_CHANNELS, AI_POST_TEXT_TO_CHANNELS_NO_MESSAGE
 from app.configs.logger import logger
 from app.db.queries.bot_comment import get_channel_comments
-from app.dependencies import get_db, get_ai_client
+from app.dependencies import get_db, get_open_ai_client
 from app.models.bot_comment import BotComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
@@ -20,7 +20,7 @@ class AssignedChannelsMessenger:
     def __init__(
             self,
             clients_creator: ClientsCreator = Depends(),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             session: Session = Depends(get_db)
     ):
         self._clients = []

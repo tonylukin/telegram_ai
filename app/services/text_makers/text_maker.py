@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import AI_NEWS_POST_IMAGE, AI_NEWS_POST_TEXT, IMAGE_CREATION_PROBABILITY, PERSONS, \
     AI_MASS_NEWS_POST_TEXT, AI_NEWS_EMOTIONS, AI_MASS_NEWS_POST_IMAGE
 from app.configs.logger import logger
-from app.dependencies import get_db, get_ai_client, get_ai_client_images, get_news_maker
+from app.dependencies import get_db, get_ai_client_images, get_news_maker, get_open_ai_client
 from app.models.news_post import NewsPost
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.news.news_maker_base import NewsMakerBase, NewsItem
@@ -28,7 +28,7 @@ class TextMaker:
     def __init__(
             self,
             news_maker: NewsMakerBase = Depends(get_news_maker),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             ai_client_images: AiClientBase = Depends(get_ai_client_images),
             persons: List[str] = Depends(get_persons),
             session: Session = Depends(get_db)

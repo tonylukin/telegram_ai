@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import TIKTOK_AI_USER_INFO_PROFILE_PROMPT_RU, TIKTOK_AI_USER_INFO_PROFILE_PROMPT_EN
 from app.configs.logger import logger
 from app.db.queries.tiktok_user import get_tiktok_user_by_username
-from app.dependencies import get_db, get_ai_client
+from app.dependencies import get_db, get_open_ai_client
 from app.models.tiktok_user import TikTokUser
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.apify.tiktok_scrapper_client import TikTokScrapperClient
@@ -23,7 +23,7 @@ class TikTokUserInfoCollector:
 
     def __init__(
             self,
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             session: Session = Depends(get_db),
             tiktok_scrapper_client: TikTokScrapperClient = Depends(),
     ):

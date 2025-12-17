@@ -8,7 +8,7 @@ from telethon.tl.types import User
 
 from app.config import MESSAGE_RECEIVER_PROMPT
 from app.configs.logger import logger
-from app.dependencies import get_ai_client, get_db
+from app.dependencies import get_open_ai_client, get_db
 from app.models.tg_bot_message import TgBotMessage
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.clients_creator import ClientsCreator, BotClient
@@ -21,7 +21,7 @@ class MessageReceiver:
     def __init__(
             self,
             clients_creator: ClientsCreator = Depends(),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             session: Session = Depends(get_db)
     ):
         self._clients = []

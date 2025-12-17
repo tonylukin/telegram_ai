@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import IG_AI_USER_INFO_PROFILE_PROMPT_RU, IG_AI_USER_INFO_PROFILE_PROMPT_EN
 from app.configs.logger import logger
 from app.db.queries.ig_user import get_ig_user_by_username
-from app.dependencies import get_db, get_ai_client
+from app.dependencies import get_db, get_open_ai_client
 from app.models.ig_user import IgUser
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.apify.instagram_scrapper_client import InstagramScrapperClient
@@ -24,7 +24,7 @@ class InstagramUserInfoCollector:
 
     def __init__(
             self,
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             session: Session = Depends(get_db),
             instagram_scrapper_client: InstagramScrapperClient = Depends(),
     ):

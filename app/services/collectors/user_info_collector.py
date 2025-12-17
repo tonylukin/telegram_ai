@@ -10,7 +10,7 @@ from app.config import AI_USER_INFO_MESSAGES_PROMPT, AI_USER_INFO_REACTIONS_PROM
 from app.configs.logger import logger
 from app.db.queries.tg_user_comment import get_user_comments
 from app.db.queries.tg_users import get_user_by_id
-from app.dependencies import get_db, get_ai_client
+from app.dependencies import get_db, get_open_ai_client
 from app.models.tg_user import TgUser
 from app.models.tg_user_comment import TgUserComment
 from app.services.ai.ai_client_base import AiClientBase
@@ -36,7 +36,7 @@ class UserInfoCollector:
     def __init__(
             self,
             clients_creator: ClientsCreator = Depends(),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             chat_searcher: ChatSearcher = Depends(),
             session: Session = Depends(get_db),
             user_messages_search: UserMessagesSearch = Depends(),

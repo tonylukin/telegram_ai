@@ -5,7 +5,7 @@ from telethon.tl.types import User
 
 from app.config import BULLYING_MESSAGE_PROMPT
 from app.configs.logger import logger
-from app.dependencies import get_ai_client
+from app.dependencies import get_open_ai_client
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
@@ -21,7 +21,7 @@ class BullyingMachine:
             user_instance_searcher: UserInstanceSearcher = Depends(),
             user_message_searcher: UserMessagesSearch = Depends(),
             chat_messenger: ChatMessenger = Depends(),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
     ):
         self._clients_creator = clients_creator
         self._user_instance_searcher = user_instance_searcher

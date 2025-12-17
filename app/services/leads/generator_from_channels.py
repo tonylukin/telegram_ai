@@ -10,7 +10,7 @@ from collections.abc import Callable
 from app.config import is_dev, is_prod
 from app.configs.logger import logger
 from app.db.queries.tg_lead import get_tg_lead_by_post_id
-from app.dependencies import get_ai_client, get_db, get_open_ai_client
+from app.dependencies import get_db, get_open_ai_client
 from app.models.tg_lead import TgLead
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.notification_sender import NotificationSender
