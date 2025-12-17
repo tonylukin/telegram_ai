@@ -13,7 +13,7 @@ from app.config import TELEGRAM_CHATS_TO_POST, AI_POST_TEXT_TO_CHANNELS, AI_POST
     CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH
 from app.configs.logger import logger
 from app.db.queries.bot_comment import get_bot_comments
-from app.dependencies import get_db, get_ai_client
+from app.dependencies import get_db, get_open_ai_client
 from app.models.bot_comment import BotComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.chat_searcher import ChatSearcher
@@ -29,7 +29,7 @@ class ChatMessenger:
             self,
             clients_creator: ClientsCreator = Depends(),
             chat_searcher: ChatSearcher = Depends(ChatSearcher),
-            ai_client: AiClientBase = Depends(get_ai_client),
+            ai_client: AiClientBase = Depends(get_open_ai_client),
             session: Session = Depends(get_db)
     ):
         self._clients = []
