@@ -1,0 +1,39 @@
+[project]
+name = "telegram-ai"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "scikit-learn",
+    "pydantic",
+    "openai",
+    "dotenv",
+    "python-dotenv",
+    "google",
+    "requests",
+    "pillow",
+    "Telethon",
+    "SQLAlchemy",
+    "alembic",
+    "protobuf",
+    "punq",
+    "aiohttp",
+    "python-telegram-bot",
+    "psycopg2-binary",
+    "google-generativeai",
+    "aio_pika",
+    "apify-client",
+    "langgraph",
+    "langchain_openai",
+    "langchain_core",
+    "chromadb"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "scikit-learn",
+    "torch"
+]

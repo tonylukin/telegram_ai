@@ -127,3 +127,10 @@ scp sessions/* tgai:/home/telegram_ai/sessions/
 ```bash
 PYTHONPATH=. pytest -v
 ```
+
+### Machine learning model training
+```bash
+PYTHONPATH=. python3 app/ml/train/hairdresser/train_sklearn.py # scikit-learn - classic ML, fits for our small datasets (<500 samples)
+PYTHONPATH=. python3 app/ml/train/hairdresser/train_torch.py # pytorch - neural network: not effective on our small datasets
+PYTHONPATH=. python3 app/ml/train/hairdresser/train_tf.py # tensor flow - neural network, deep learning: not effective on our small datasets
+```

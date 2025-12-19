@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.params import Depends
 
-from app.config import TELEGRAM_NOTIFICATIONS_CHAT_ID
 from app.services.leads.generator_from_channels import GeneratorFromChannels
 from app.services.leads.self_tuning_from_channel import SelfTuningFromChannel
 from app.services.rags.hairdresser.main import run_workflow
@@ -32,6 +31,15 @@ async def self_tuning(request: Request, self_tuning_from_channel: SelfTuningFrom
     try:
         data = await request.json()
         result = await self_tuning_from_channel.tune(channel_name=data.get('channel_name'), user=data.get('user'), workflow=data.get('workflow'))
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/ml-self-tuning")
+async def self_tuning(request: Request, self_tuning_from_channel: SelfTuningFromChannel = Depends()):
+    try:
+        data = await request.json()
+        result = await self_tuning_from_channel.create_ml_data(channel_name=data.get('channel_name'), user=data.get('user'), workflow=data.get('workflow'))
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
