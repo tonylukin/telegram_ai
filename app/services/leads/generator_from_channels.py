@@ -144,7 +144,7 @@ class GeneratorFromChannels:
                         bot_id=bot_clients[0].bot.id,
                     )
                     self._session.add(tg_lead)
-                    if self._notify_about_leads and is_prod():
+                    if self._notify_about_leads and is_prod() and (sender_name or '').strip().lower() not in ['', 'unknown']:
                         message = f'Found new lead from {sender_name} in chat @{chat.username} [{chat.id}]\n'
                         message += f'<blockquote>{text}</blockquote>'
                         if answer:
