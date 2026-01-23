@@ -32,7 +32,8 @@ services:
       - db
 
   db:
-    image: postgres:14
+#    image: postgres:14
+    image: pgvector/pgvector:pg14
     env_file:
       - .env
     environment:
