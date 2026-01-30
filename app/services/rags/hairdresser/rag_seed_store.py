@@ -1,4 +1,3 @@
-# rag_store_chroma.py
 from chromadb import PersistentClient
 from langchain_openai import OpenAIEmbeddings
 
