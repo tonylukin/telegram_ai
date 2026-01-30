@@ -101,6 +101,17 @@ services:
     env_file:
       - .env
 
+  moodflow_bot:
+    image: tonylukin/telegram_ai:human_scanner_bot
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    command: python3 app/bots/moodflow/main.py
+    depends_on:
+      - db
+    env_file:
+      - .env
+
 volumes:
   pgdata:
   rabbitmq_data:

@@ -7,12 +7,13 @@ from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 
 from app.services.moodflow.extracted_memory import parse_extract_payload
 from app.services.moodflow.graph_state import GraphState
+from app.services.moodflow.memory_store_pg import MemoryStorePG
 from app.services.moodflow.mood_state import BotMood, mood_to_prompt
 
 
 def build_nodes(
     *,
-    store,
+    store: MemoryStorePG,
     llm: ChatOpenAI,
     embeddings: OpenAIEmbeddings,
     history_limit: int = 20,
@@ -55,12 +56,14 @@ def build_nodes(
         ]
         return state
 
-    def _compose_messages(state: GraphState) -> List[Dict[str, str]]:
+    async def _compose_messages(state: GraphState) -> List[Dict[str, str]]:
         profile = state.get("profile", {}) or {}
         memories = state.get("retrieved_memories", []) or []
         short_history = state.get("short_history", []) or []
         mood = mood_to_prompt(state.get("mood", BotMood.NEUTRAL))
-        print('cur mood:', mood)
+        profile['mood'] = mood
+        await store.patch_profile(user_id=state["user_id"], patch={'mood': mood})
+        # print('cur mood:', mood)
 
         mem_block = "\n".join(
             f"- ({m['type']}, imp={m['importance']:.2f}) {m['text']}" for m in memories
@@ -68,7 +71,7 @@ def build_nodes(
 
         system = (
             "You are a Russian-speaking Telegram bot. Be highly personalized.\n"
-            f"The most important thing: you have a mood, so your answers must strictly respect it: {mood} \n"
+            f"You have a mood, so your answers must strictly respect it: {mood} \n"
             "Use the user's profile, short chat history, and retrieved long-term memory.\n"
             "Do not invent user facts. If something is unknown, ask a clarifying question.\n"
             "Keep responses chatty and natural for Telegram. \n"
@@ -82,11 +85,11 @@ def build_nodes(
             role = "user" if h["role"] == "user" else "assistant"
             msgs.append({"role": role, "content": h["text"]})
 
-        msgs.append({"role": "user", "content": state["user_text"]})
+        # msgs.append({"role": "user", "content": state["user_text"]}) # last text is already in history
         return msgs
 
     async def generate(state: GraphState) -> GraphState:
-        msgs = _compose_messages(state)
+        msgs = await _compose_messages(state)
         print('composed messages', msgs)
         r = await llm.ainvoke(msgs)
         state["assistant_text"] = (getattr(r, "content", "") or "").strip()
@@ -122,7 +125,9 @@ def build_nodes(
     async def store_results(state: GraphState) -> GraphState:
         user_id = state["user_id"]
 
-        await store.append_message(user_id, "assistant", state["assistant_text"])
+        # todo we store tg_message_id from user message, but not from bot response -> when response sent in tg, we will update it to bot message id.
+        #  Maybe we should have additional column to store user message id to have relation between user and bot messages?
+        await store.append_message(user_id, "assistant", state["assistant_text"], tg_message_id=state["user_msg_id"])
 
         patch = state.get("profile_patch") or {}
         if patch:

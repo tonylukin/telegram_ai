@@ -7,6 +7,7 @@ class GraphState(TypedDict, total=False):
     user_id: int
     user_text: str
     mood: BotMood
+    user_msg_id: int
 
     profile: Dict[str, Any]
     short_history: List[Dict[str, str]]
