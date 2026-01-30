@@ -33,21 +33,6 @@ def main():
         class_=AsyncSession,
     )
 
-    # --- Load Vector DB ---
-    # embeddings = HuggingFaceEmbeddings(
-    #     model_name="sentence-transformers/all-MiniLM-L6-v2"
-    # )
-    #
-    # db = Chroma(
-    #     persist_directory="./chroma_db",
-    #     embedding_function=embeddings
-    # )
-    #
-    # retriever = db.as_retriever(search_kwargs={"k": 3})
-    #
-    # # --- LLM ---
-    # llm = get_open_ai_client()
-
     async def handle_reaction(update: Update, context: ContextTypes.DEFAULT_TYPE):
         mr = update.message_reaction
         if mr is None:
