@@ -204,7 +204,7 @@ async def promote_user(super_admin_client: TelegramClient, candidate: User, grou
         rank='Admin'
     ))
 
-def get_name_from_user(user: User | None) -> str:
+def get_name_from_user(user: User | None, append_id: bool = False) -> str:
     if user and isinstance(user, User):
         name_parts = []
         if user.first_name:
@@ -213,6 +213,8 @@ def get_name_from_user(user: User | None) -> str:
             name_parts.append(user.last_name)
         if user.username:
             name_parts.append(f"@{user.username}")
+        if append_id:
+            name_parts.append(f"#{user.id}")
         sender_name = " ".join(name_parts) if name_parts else str(user.id)
     else:
         sender_name = "Unknown"

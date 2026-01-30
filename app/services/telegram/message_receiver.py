@@ -17,6 +17,7 @@ from app.services.telegram.helpers import get_name_from_user
 
 class MessageReceiver:
     BATCH_SIZE = 3
+    BLACK_LISTED_USER_NAMES = ['marmara1999', 'tamila1999_e'] # usually they are my bots
 
     def __init__(
             self,
@@ -98,14 +99,14 @@ class MessageReceiver:
                 last_msg = messages[0]
 
                 # Check if last message is incoming (from another user)
-                if last_msg.out or last_msg.sender.bot or last_msg.sender.deleted or (last_msg.sender.first_name == 'Telegram' and last_msg.sender.verified):
+                if last_msg.out or last_msg.sender.bot or last_msg.sender.deleted or (last_msg.sender.first_name == 'Telegram' and last_msg.sender.verified) or last_msg.sender.username in self.BLACK_LISTED_USER_NAMES:
                     continue
 
                 dialog_messages = ['- ' + message.message for message in messages if message.message]
                 logger.info(f"[Check_and_reply][{bot_client.get_name()}] Dialog: {dialog_messages}")
                 try:
                     reply_text = self._ai_client.generate_text(MESSAGE_RECEIVER_PROMPT.format(message=last_msg.text, chat=promoting_channel))
-                    sender_name = get_name_from_user(last_msg.sender)
+                    sender_name = get_name_from_user(last_msg.sender, True)
                     await client.send_message(chat_id, reply_text, reply_to=last_msg.id)
                     logger.info(f"[Check_and_reply][{bot_client.get_name()}] Replied in chat {chat_id}")
                     replies.append([sender_name, last_msg.text, reply_text])
