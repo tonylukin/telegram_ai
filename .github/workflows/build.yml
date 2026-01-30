@@ -57,16 +57,29 @@ jobs:
 
       # Подключаемся по SSH к Droplet и перезапускаем контейнер
 #            echo "${{ secrets.DOTENV_FILE }}" > .env
-      - name: Deploy to DigitalOcean
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ vars.HOST }}
-          username: ${{ vars.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
+#      - name: Deploy to DigitalOcean
+#        uses: appleboy/ssh-action@v1
+#        with:
+#          host: ${{ vars.HOST }}
+#          username: ${{ vars.USERNAME }}
+#          key: ${{ secrets.SSH_PRIVATE_KEY }}
+#          script: |
+#            mkdir -p /home/telegram_ai
+#            cd /home/telegram_ai
+#
+#            docker compose pull
+#            docker compose down
+#            docker compose up -d --remove-orphans
+
+      - name: Deploy to DigitalOcean (ssh)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh -o StrictHostKeyChecking=no ${{ vars.USERNAME }}@${{ vars.HOST }} << 'EOF'
             mkdir -p /home/telegram_ai
             cd /home/telegram_ai
-
             docker compose pull
             docker compose down
             docker compose up -d --remove-orphans
+          EOF
