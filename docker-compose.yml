@@ -43,7 +43,7 @@ services:
     ports:
       - "5439:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data #todo probably better to use real path
 
   rabbitmq:
     image: rabbitmq:3-management
