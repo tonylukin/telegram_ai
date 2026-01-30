@@ -21,9 +21,17 @@ PYTHONPATH=. python3 app/console/invite_to_own_channels_command.py
 ```bash
 PYTHONPATH=. python3 app/console/channels_export_command.py
 ```
+
 #### Listen for incoming client messages
 ```bash
 PYTHONPATH=. python3 app/console/client_messages_listener.py --bot=
+```
+
+### Run bots
+```bash
+PYTHONPATH=. python3 app/bots/future_ads/main.py
+PYTHONPATH=. python3 app/bots/human_scanner_ai/main.py
+PYTHONPATH=. python3 app/bots/moodflow/main.py
 ```
 
 ### Run consumers

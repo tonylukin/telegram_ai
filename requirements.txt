@@ -21,4 +21,8 @@ apify-client
 langgraph
 langchain_openai
 langchain_core
+langchain-community
 chromadb
+sentence-transformers
+asyncpg
+greenlet

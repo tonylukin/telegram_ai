@@ -32,7 +32,8 @@ services:
       - db
 
   db:
-    image: postgres:14
+#    image: postgres:14
+    image: pgvector/pgvector:pg14
     env_file:
       - .env
     environment:
@@ -97,6 +98,17 @@ services:
       context: .
       dockerfile: human_scanner_bot.dockerfile
     command: python3 app/bots/future_ads/main.py
+    env_file:
+      - .env
+
+  moodflow_bot:
+    image: tonylukin/telegram_ai:human_scanner_bot
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    command: python3 app/bots/moodflow/main.py
+    depends_on:
+      - db
     env_file:
       - .env
 
