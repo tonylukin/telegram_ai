@@ -57,6 +57,7 @@ class BotMood(Enum):
     CHAOTIC = auto()
     RANDOM = auto()
 
+
 MOOD_PROMPT_MAP = {
     BotMood.NEUTRAL: "Respond in a neutral, balanced, and helpful tone.",
     BotMood.DRY: "Be concise, minimalistic, and slightly emotionless.",
@@ -98,7 +99,6 @@ MOOD_PROMPT_MAP = {
     BotMood.CHAOTIC: "Be chaotic in phrasing and structure but still understandable.",
     BotMood.RANDOM: "Use unpredictable phrasing and tone shifts.",
 }
-
 
 
 MOOD_PALETTES: Dict[str, List[BotMood]] = {
@@ -155,18 +155,18 @@ MOOD_PALETTES: Dict[str, List[BotMood]] = {
 class MoodState:
     mood: BotMood = BotMood.DRY
     palette: str = "base"
-    streak: int = 0  # сколько сообщений подряд держим mood
+    streak: int = 0  # How many consecutive messages we keep the current mood
     last_change_ts: float = 0.0
 
-    # "температура" / эмоциональный заряд (копится от триггеров)
-    irritation: float = 0.0   # 0..1
-    warmth: float = 0.0       # 0..1
+    # "Temperature" / emotional charge (accumulates from triggers)
+    irritation: float = 0.0  # 0..1
+    warmth: float = 0.0  # 0..1
 
-    # анти-повторы
+    # Anti-repetition tracking
     last_user_text: Optional[str] = None
     repeat_count: int = 0
 
-    # спам/частота
+    # Spam/frequency tracking
     last_user_ts: float = 0.0
     fast_msgs: int = 0
 
@@ -204,11 +204,11 @@ def detect_repeat(state: MoodState, user_text: str) -> bool:
         state.last_user_text = t
         state.repeat_count = 0
 
-    return state.repeat_count >= 1  # повторился хотя бы раз
+    return state.repeat_count >= 1  # repeated at least once
 
 
 def detect_spam(state: MoodState, now_ts: float) -> bool:
-    # если сообщения идут слишком часто, считаем "спамом"
+    # if messages come too frequently, treat as spam
     if state.last_user_ts == 0:
         state.last_user_ts = now_ts
         state.fast_msgs = 0
@@ -220,7 +220,7 @@ def detect_spam(state: MoodState, now_ts: float) -> bool:
     if delta < 2.0:
         state.fast_msgs += 1
     else:
-        # естественное затухание
+        # natural decay
         state.fast_msgs = max(0, state.fast_msgs - 1)
 
     return state.fast_msgs >= 3
@@ -233,14 +233,14 @@ PALETTE_WEIGHTS_BASE = {
     "irritated": 15,
     "rude_soft": 4,
     "dark": 1,
-    "chaotic": 0,  # чаще только если хочешь
-    "angry_controlled": 0,  # лучше включать реактивно
-    "arrogant": 0,  # лучше реактивно
+    "chaotic": 0,  # more often only if you want
+    "angry_controlled": 0,  # better to enable reactively
+    "arrogant": 0,  # better reactively
 }
 
-DEFAULT_HOLD_MIN = 2       # минимум сообщений держим настроение
-DEFAULT_HOLD_MAX = 5       # и максимум, чтобы не залипало
-COOLDOWN_SECONDS = 6.0     # не меняем слишком часто
+DEFAULT_HOLD_MIN = 2       # minimum number of messages to hold mood
+DEFAULT_HOLD_MAX = 5       # maximum number of messages to avoid sticking
+COOLDOWN_SECONDS = 6.0     # avoid changing too often
 
 
 def weighted_choice(weight_map: Dict[str, int]) -> str:
@@ -250,9 +250,9 @@ def weighted_choice(weight_map: Dict[str, int]) -> str:
 
 
 def pick_palette(state: MoodState, *, rude: bool, spam: bool, repeat: bool, polite: bool) -> str:
-    # реактивные переключения (самые сильные триггеры)
+    # reactive switches (strongest triggers)
     if spam:
-        return "dismissive_or_rude"  # обработаем ниже как специальный кейс
+        return "dismissive_or_rude"  # handled below as a special case
     if rude:
         return "defensive_or_rude"
     if repeat:
@@ -260,21 +260,21 @@ def pick_palette(state: MoodState, *, rude: bool, spam: bool, repeat: bool, poli
     if polite:
         return "positive"
 
-    # обычный режим — по весам, но с учетом накопленной "температуры"
+    # normal mode — weighted, but considering accumulated "temperature"
     weights = dict(PALETTE_WEIGHTS_BASE)
 
-    # если раздражение накопилось — чаще irritated/rude_soft
+    # if irritation accumulates — prefer irritated/rude_soft more often
     weights["irritated"] += int(state.irritation * 20)
     weights["rude_soft"] += int(state.irritation * 8)
 
-    # если теплота накопилась — чаще positive
+    # if warmth accumulates — prefer positive more often
     weights["positive"] += int(state.warmth * 15)
 
     return weighted_choice(weights)
 
 
 def pick_mood_from_palette(palette: str, last_mood: BotMood) -> BotMood:
-    # спец-кейсы
+    # special cases
     if palette == "dismissive_or_rude":
         options = [BotMood.DISMISSIVE, BotMood.PASSIVE_AGGR, BotMood.SNARKY]
     elif palette == "defensive_or_rude":
@@ -282,7 +282,7 @@ def pick_mood_from_palette(palette: str, last_mood: BotMood) -> BotMood:
     else:
         options = MOOD_PALETTES.get(palette, MOOD_PALETTES["base"])
 
-    # избегаем повтора одного и того же
+    # avoid repeating the same mood
     if len(options) > 1 and last_mood in options:
         options = [m for m in options if m != last_mood] or options
 
@@ -301,8 +301,8 @@ def update_mood(
     repeat = detect_repeat(state, user_text)
     spam = detect_spam(state, now_ts)
 
-    # обновляем накопители
-    # раздражение растет от: грубость/повторы/спам
+    # update accumulators
+    # irritation increases from: rudeness/repeats/spam
     if rude:
         state.irritation = min(1.0, state.irritation + 0.35)
     if repeat:
@@ -310,19 +310,19 @@ def update_mood(
     if spam:
         state.irritation = min(1.0, state.irritation + 0.25)
 
-    # теплота растет от вежливости
+    # warmth increases from politeness
     if polite:
         state.warmth = min(1.0, state.warmth + 0.25)
 
-    # затухание со временем (простое)
+    # decay over time (simple)
     state.irritation = max(0.0, state.irritation - 0.05)
     state.warmth = max(0.0, state.warmth - 0.03)
 
-    # решаем: можно ли менять mood сейчас
+    # decide if mood can change now
     hold_target = min(DEFAULT_HOLD_MAX, max(DEFAULT_HOLD_MIN, 2 + int(state.irritation * 2)))
     time_since_change = now_ts - (state.last_change_ts or 0.0)
 
-    must_react = rude or spam  # сильные триггеры пробивают инерцию
+    must_react = rude or spam  # strong triggers break inertia
     can_change = must_react or (
         state.streak >= hold_target and time_since_change >= COOLDOWN_SECONDS
     )
@@ -342,7 +342,7 @@ def update_mood(
     return mood, palette
 
 
-USER_STATE: Dict[int, MoodState] = {} # keep in memory -> every day mood changes for all users
+USER_STATE: Dict[int, MoodState] = {}  # keep in memory -> every day mood changes for all users
 
 def get_state(user_id: int) -> MoodState:
     return USER_STATE.setdefault(user_id, MoodState())
