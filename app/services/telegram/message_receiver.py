@@ -1,4 +1,4 @@
-import asyncio
+import asyncio, random
 
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
@@ -30,10 +30,13 @@ class MessageReceiver:
         self._ai_client = ai_client
         self._session = session
 
-    async def check_and_reply(self, promoting_channel: str, promoting_channel_to_invite: str = None) -> list[dict[str, int]]:
+    async def check_and_reply(self, promoting_channels: list[str], promoting_channels_to_invite: list[str] = None) -> list[dict[str, int]]:
         results = []
         page = 0
         while True:
+            idx = random.randint(0, len(promoting_channels) - 1)
+            promoting_channel = promoting_channels[idx]
+            promoting_channel_to_invite = promoting_channels_to_invite[idx] if promoting_channels_to_invite else None
             offset = page * self.BATCH_SIZE
             bot_clients = self._clients_creator.create_clients_from_bots(limit=self.BATCH_SIZE, offset=offset)
             batch_results = await asyncio.gather(

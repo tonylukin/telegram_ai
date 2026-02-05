@@ -15,7 +15,10 @@ router = APIRouter(prefix="/message", tags=["Message"])
 async def reply_to_all_messages(request: Request, message_receiver: MessageReceiver = Depends()):
     try:
         data = await request.json()
-        result = await message_receiver.check_and_reply(promoting_channel=data.get('promoting_channel', PROMOTING_CHANNEL), promoting_channel_to_invite=data.get('promoting_channel_to_invite', PROMOTING_CHANNEL_TO_INVITE))
+        result = await message_receiver.check_and_reply(
+            promoting_channels=data.get('promoting_channels', [PROMOTING_CHANNEL]),
+            promoting_channels_to_invite=data.get('promoting_channels_to_invite', [PROMOTING_CHANNEL_TO_INVITE])
+        )
 
         return {"status": "ok", "result": result}
     except Exception as e:
