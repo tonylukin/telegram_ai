@@ -30,6 +30,7 @@ class ReactionSender:
             chat_searcher: ChatSearcher = Depends(ChatSearcher),
             session: Session = Depends(get_db),
     ):
+        self._keywords = None
         self._clients = []
         self._clients_creator = clients_creator
         self._chat_searcher = chat_searcher
@@ -125,6 +126,10 @@ class ReactionSender:
                     sender_fullname = ((getattr(message.sender, "first_name", '') or '') + ' ' + (getattr(message.sender, "last_name", '') or '')).strip()
                     if sender_id not in id_set and sender_username not in username_set and sender_fullname not in fullname_set:
                         continue
+
+                if self._keywords and isinstance(self._keywords, (list, tuple)) and not any(keyword.lower() in (message.message or '').lower() for keyword in self._keywords):
+                    logger.warning(f'[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] keywords not found in message {message.id}')
+                    continue
 
                 chat_name = chat.username or str(chat.id)
                 tg_post_reaction = get_reaction_by_post_id_and_channel(session=self._session, channel=chat_name, post_id=message.id)
@@ -250,11 +255,19 @@ class ReactionSender:
 
         self._session.flush()
 
-    async def send_reactions(self, query: str = None, reaction: str = None, chat_names: list[str] = None, usernames: list[str] | list[int] = None) -> list[dict[str, int]]:
+    async def send_reactions(
+            self,
+            query: str = None,
+            reaction: str = None,
+            chat_names: list[str] = None,
+            usernames: list[str] | list[int] = None,
+            keywords: list[str] = None
+    ) -> list[dict[str, int]]:
         self._query = query
         self._reaction = reaction
         self._chat_names = chat_names
         self._usernames = usernames
+        self._keywords = keywords
         page = 0
         results = []
         while True:

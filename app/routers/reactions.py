@@ -25,7 +25,12 @@ async def generate_reactions(body: GenerateReactionsBody, reaction_sender: React
 async def react_on_user_messages(request: Request, reaction_sender: ReactionSender = Depends()):
     try:
         data = await request.json()
-        result = await reaction_sender.send_reactions(reaction=data.get('reaction', '❤️'), chat_names=data.get('chat_names'), usernames=data.get('usernames'))
+        result = await reaction_sender.send_reactions(
+            reaction=data.get('reaction', '❤️'),
+            chat_names=data.get('chat_names'),
+            usernames=data.get('usernames'),
+            keywords=data.get('keywords'),
+        )
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
