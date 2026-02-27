@@ -16,6 +16,12 @@ terraform {
 
 provider "aws" {
   region = var.aws_region
+  profile = "dishscan"
+
+  assume_role {
+    role_arn     = "arn:aws:iam::477975426794:role/TerraformAdminRole"
+    session_name = "terraform"
+  }
 }
 
 locals {

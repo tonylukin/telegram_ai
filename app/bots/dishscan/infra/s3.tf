@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "uploads" {
-  bucket = "${local.app}-uploads-${var.name_suffix}-${random_id.suffix.hex}"
+  bucket = "${local.app}-uploads-${var.env}-${random_id.suffix.hex}"
   tags   = local.tags
 }
 

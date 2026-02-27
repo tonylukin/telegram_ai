@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from app.services.telegram.telegram_message_sender import TelegramMessageSender
 from app.services.text_makers.text_maker import TextMaker
 from app.services.text_makers.text_maker_smishno import TextMakerSmishno
-from app.config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_SMISHNO_BOT_TOKEN, TELEGRAM_SMISHNO_CHAT_ID, \
+from app.config import TELEGRAM_IZOLENTA_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_SMISHNO_BOT_TOKEN, TELEGRAM_SMISHNO_CHAT_ID, \
     TELEGRAM_WHAT_IN_THE_FUTURE_CHAT_ID
 from app.services.text_makers.text_maker_what_in_the_future import TextMakerWhatInTheFuture
 
@@ -22,7 +22,7 @@ def generate_texts(body: GenerateTextBody, text_maker: TextMaker = Depends()):
         count = body.count
         texts = text_maker.create_texts(count = count)
         result = True
-        sender = TelegramMessageSender(TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID)
+        sender = TelegramMessageSender(TELEGRAM_IZOLENTA_BOT_TOKEN, TELEGRAM_CHAT_ID)
         for text in texts:
             if count is None:
                 view = f"<strong>{text['person']} {text['emotion']} читает сегодняшние новости</strong> \n\n"

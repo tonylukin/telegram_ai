@@ -19,7 +19,7 @@ resource "aws_lambda_function" "worker" {
   environment {
     variables = {
       DDB_TABLE_NAME     = aws_dynamodb_table.jobs.name
-      TELEGRAM_BOT_TOKEN = var.TELEGRAM_DISHSCAN_BOT_TOKEN
+      EVENT_BUS_NAME     = aws_cloudwatch_event_bus.bus.name
       BEDROCK_MODEL_ID   = var.bedrock_model_id
     }
   }

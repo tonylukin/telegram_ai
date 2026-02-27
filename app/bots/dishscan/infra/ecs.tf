@@ -34,7 +34,7 @@ resource "aws_ecr_repository" "bot" {
 
 # Secret (value will be set via CLI to avoid putting token into tfstate)
 resource "aws_secretsmanager_secret" "telegram_token" {
-  name        = "${local.app}/telegram_bot_token/${var.name_suffix}"
+  name        = "${local.app}/telegram_bot_token/${var.env}"
   description = "Telegram bot token for dishscan polling bot"
   tags        = local.tags
 
@@ -127,20 +127,20 @@ resource "aws_ecs_task_definition" "bot" {
       }
 
       environment = [
-        { name = "AWS_REGION",      value = var.aws_region },
-        { name = "S3_BUCKET",       value = aws_s3_bucket.uploads.bucket },
-        { name = "SQS_QUEUE_URL",   value = aws_sqs_queue.queue.url },
-        { name = "DDB_TABLE_NAME",  value = aws_dynamodb_table.jobs.name },
-        { name = "EVENT_BUS_NAME",  value = aws_cloudwatch_event_bus.bus.name }
-      ]
-
-      secrets = [
-        { name = "TELEGRAM_BOT_TOKEN", valueFrom = aws_secretsmanager_secret.telegram_token.arn }
+        { name = "DISHSCAN_AWS_REGION", value = var.aws_region },
+        { name = "DISHSCAN_S3_BUCKET",       value = aws_s3_bucket.uploads.bucket },
+        { name = "DISHSCAN_SQS_QUEUE_URL",   value = aws_sqs_queue.queue.url },
+        { name = "DISHSCAN_DDB_TABLE_NAME",  value = aws_dynamodb_table.jobs.name },
+        { name = "DISHSCAN_COMPLETIONS_QUEUE_URL", value = aws_sqs_queue.completions.url },
+        { name = "DISHSCAN_EVENT_BUS_NAME",  value = aws_cloudwatch_event_bus.bus.name }
       ]
     }
   ])
 
   tags = local.tags
+  depends_on = [
+    aws_cloudwatch_log_group.bot
+  ]
 }
 
 resource "aws_ecs_service" "bot" {

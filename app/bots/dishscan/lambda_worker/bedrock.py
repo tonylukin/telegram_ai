@@ -13,8 +13,8 @@ def estimate_nutrition(image_bytes: bytes) -> dict:
     b64 = base64.b64encode(image_bytes).decode("utf-8")
 
     prompt = """
-You are a nutrition assistant. Analyze the food photo and estimate calories and macronutrients.
-Return STRICT JSON ONLY with the schema:
+Вы — помощник по вопросам питания. Проанализируйте фотографию еды и оцените калорийность и макроэлементы.
+Верните СТРОГО ТОЛЬКО JSON по следующей схеме:
 {
   "items":[{"name":"...", "estimated_grams":123, "calories":123, "protein_g":12, "fat_g":12, "carbs_g":12}],
   "total":{"calories":123, "protein_g":12, "fat_g":12, "carbs_g":12},

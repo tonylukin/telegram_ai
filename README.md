@@ -150,8 +150,3 @@ terraform init
 terraform plan
 terraform apply
 ```
-#### Redeploying lambda function with new code
-```bash
-cd app/bots/dishscan/infra
-terraform apply -replace=aws_lambda_function.worker
-```

@@ -6,17 +6,18 @@ from decimal import Decimal
 import boto3
 
 from bedrock import estimate_nutrition
-from formatting import format_markdown
-from telegram import send_message
 
 
-AWS_REGION = os.environ.get("AWS_REGION")
+AWS_REGION = os.environ.get("DISHSCAN_AWS_REGION")
 DDB_TABLE_NAME = os.environ["DDB_TABLE_NAME"]
 
 session = boto3.session.Session(region_name=AWS_REGION)
 s3 = session.client("s3")
 dynamodb = session.resource("dynamodb")
 table = dynamodb.Table(DDB_TABLE_NAME)
+events = session.client("events")
+
+EVENT_BUS_NAME = os.environ["EVENT_BUS_NAME"]
 
 
 def now_iso() -> str:
@@ -79,8 +80,17 @@ def handler(event, context):
                 },
             )
 
-            # Reply back to Telegram user
-            send_message(chat_id, format_markdown(result))
+            events.put_events(
+                Entries=[{
+                    "EventBusName": EVENT_BUS_NAME,
+                    "Source": "dishscan.worker",
+                    "DetailType": "dishscan.job.completed",
+                    "Detail": json.dumps({
+                        "job_id": job_id,
+                        "status": "DONE",
+                    }),
+                }]
+            )
 
         except Exception as e:
             # Mark job as FAILED (error is reserved word -> alias it)
@@ -96,6 +106,18 @@ def handler(event, context):
                     ":u": now_iso(),
                     ":err": str(e),
                 },
+            )
+
+            events.put_events(
+                Entries=[{
+                    "EventBusName": EVENT_BUS_NAME,
+                    "Source": "dishscan.worker",
+                    "DetailType": "dishscan.job.completed",
+                    "Detail": json.dumps({
+                        "job_id": job_id,
+                        "status": "FAILED",
+                    }),
+                }]
             )
 
             # Let SQS retry / move to DLQ

@@ -4,26 +4,26 @@ def format_markdown(result: dict) -> str:
     conf = float(result.get("confidence", 0.0))
     assumptions = result.get("assumptions", [])
 
-    lines = ["*Estimated nutrition* 🍽️", ""]
+    lines = ["*Оценка питания* 🍽️", ""]
     if items:
-        lines.append("*Items:*")
+        lines.append("*Блюда:*")
         for it in items:
             lines.append(
-                f"- {it.get('name','Unknown')} (~{it.get('estimated_grams','?')}g): "
-                f"{it.get('calories','?')} kcal | "
-                f"P {it.get('protein_g','?')}g / F {it.get('fat_g','?')}g / C {it.get('carbs_g','?')}g"
+                f"- {it.get('name', 'Неизвестно')} (~{it.get('estimated_grams', '?')}г): "
+                f"{it.get('calories', '?')} ккал | "
+                f"Б {it.get('protein_g', '?')}г / Ж {it.get('fat_g', '?')}г / У {it.get('carbs_g', '?')}г"
             )
         lines.append("")
 
     lines.append(
-        f"*Total:* {total.get('calories','?')} kcal | "
-        f"P {total.get('protein_g','?')}g / F {total.get('fat_g','?')}g / C {total.get('carbs_g','?')}g"
+        f"*Итого:* {total.get('calories', '?')} ккал | "
+        f"Б {total.get('protein_g', '?')}г / Ж {total.get('fat_g', '?')}г / У {total.get('carbs_g', '?')}г"
     )
-    lines.append(f"*Confidence:* {conf:.2f}")
+    lines.append(f"*Уверенность:* {conf:.2f}")
 
     if assumptions:
         lines.append("")
-        lines.append("*Assumptions:*")
+        lines.append("*Предположения:*")
         for a in assumptions[:6]:
             lines.append(f"- {a}")
 

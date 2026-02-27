@@ -176,7 +176,51 @@ resource "aws_iam_role_policy" "lambda_bedrock_invoke" {
   })
 }
 
-# no need this role policy cuz should be subscribed manually by account owner to the Bedrock marketplace model, but adding it here for completeness and ease of deployment
+resource "aws_iam_role_policy" "lambda_put_events" {
+  name = "dishscan-worker-put-events"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect  = "Allow"
+        Action  = ["events:PutEvents"]
+        Resource = aws_cloudwatch_event_bus.bus.arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "bot_read_completions_queue" {
+  name = "dishscan-bot-read-completions-queue"
+  role = aws_iam_role.bot_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ChangeMessageVisibility"
+        ]
+        Resource = aws_sqs_queue.completions.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem"
+        ]
+        Resource = aws_dynamodb_table.jobs.arn
+      }
+    ]
+  })
+}
+
+# todo no need this role policy cuz should be subscribed manually by account owner to the Bedrock marketplace model, but adding it here for completeness and ease of deployment
 resource "aws_iam_role_policy" "lambda_bedrock_marketplace" {
   name = "dishscan-worker-bedrock-marketplace"
   role = aws_iam_role.lambda_role.id
@@ -197,4 +241,3 @@ resource "aws_iam_role_policy" "lambda_bedrock_marketplace" {
     ]
   })
 }
-
