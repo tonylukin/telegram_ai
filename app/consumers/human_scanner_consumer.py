@@ -33,8 +33,7 @@ class HumanScannerConsumer(BaseConsumer):
         await self.__send_message(chat_id, desc, lang_code)
         return True
 
-    @staticmethod
-    async def __send_message(chat_id: int, text: str, lang_code: str):
+    async def __send_message(self, chat_id: int, text: str, lang_code: str):
         text = text or 'No data'
         keyboard = [
             # [InlineKeyboardButton(f"🔄 {translations.get(lang_code).get('start_over')}", callback_data="restart")],
@@ -44,23 +43,23 @@ class HumanScannerConsumer(BaseConsumer):
 
         if ENV == 'dev':
             logger.info(f"Sending message to {chat_id}: {text}")
-        async with aiohttp.ClientSession() as session:
-            await session.post(
-                f"{TELEGRAM_API}/sendMessage",
-                json={
-                    "chat_id": chat_id,
-                    "text": text,
-                    "parse_mode": "HTML",
-                    "reply_markup": reply_markup.to_dict()
-                }
-            )
+
+        await self._aiohttpClient.post(
+            f"{TELEGRAM_API}/sendMessage",
+            json={
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "reply_markup": reply_markup.to_dict()
+            }
+        )
 
     async def _get_desc_from_api(self, payload: dict[str, str], lang_code: str) -> str:
         headers = {
             "Authorization": f"Bearer {API_TOKEN}",
             "X-Language-Code": lang_code,
         }
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=self.LONG_SESSION_TIMEOUT) as session:
             async with session.post(f"{APP_HOST}/user-info/collect", json=payload, headers=headers) as resp:
                 if resp.status == 200:
                     result = await resp.json()

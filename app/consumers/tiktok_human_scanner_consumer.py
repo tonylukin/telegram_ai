@@ -18,7 +18,7 @@ class TikTokHumanScannerConsumer(HumanScannerConsumer):
             "Authorization": f"Bearer {API_TOKEN}",
             "X-Language-Code": lang_code,
         }
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=self.LONG_SESSION_TIMEOUT) as session:
             async with session.post(f"{APP_HOST}/user-info/tiktok-collect", json=payload, headers=headers) as resp:
                 if resp.status == 200:
                     result = await resp.json()

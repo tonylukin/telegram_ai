@@ -3,6 +3,7 @@ from typing import TypedDict
 
 from telethon import TelegramClient
 from telethon.tl.custom.message import Message
+from telethon.tl.functions.channels import JoinChannelRequest
 from telethon.tl.functions.messages import GetDiscussionMessageRequest
 from telethon.tl.types import PeerChannel, PeerUser, User, Chat, Channel
 
@@ -64,10 +65,15 @@ class UserMessagesSearch:
         return messages_by_chat
 
     @staticmethod
-    async def get_user_comments_reactions(client: TelegramClient, channel_usernames: list[str], user: User, limit: int = 50) -> dict[str, dict[str, set[str]]]:
+    async def get_user_comments_reactions(bot_client: BotClient, channel_usernames: list[str], user: User, limit: int = 50) -> dict[str, dict[str, set[str]]]:
         result = {}
+        client = bot_client.client
 
         for channel_username in channel_usernames:
+            comments = set()
+            reactions = set()
+            posts = []
+
             try:
                 # 1. Get the channel and user entities
                 channel = await client.get_entity(int(channel_username) if channel_username.isnumeric() else channel_username)
@@ -75,15 +81,17 @@ class UserMessagesSearch:
                     continue
 
                 # 2. Get recent posts from the channel
-                posts = await client.get_messages(channel, limit=limit * 10)
-                if isinstance(posts, Message):
-                    posts = [posts]
-            except Exception as e:
-                logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] Error getting info for {channel_username}: {e}")
-                continue
+                await client(JoinChannelRequest(channel))
+                if channel.broadcast:
+                    async for msg in client.iter_messages(channel, limit=limit):
+                        comments.add(msg.message)
+                else:
+                    async for msg in client.iter_messages(channel, from_user=user.id, limit=limit):
+                        posts.append(msg)
 
-            comments = set()
-            reactions = set()
+            except Exception as e:
+                logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{bot_client.get_name()}] Error getting info for {channel_username}: {e}")
+                continue
 
             if not isinstance(posts, Iterable):
                 continue
@@ -107,9 +115,11 @@ class UserMessagesSearch:
                         ))
                     except Exception as e:
                         if is_dev():
-                            logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] ⚠️ Linked discussion group error {post.id}: {e}")
+                            logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{bot_client.get_name()}] ⚠️ Linked discussion group error {post.id}: {e}")
                         continue
 
+                    if not discussion.messages:
+                        continue
                     discussion_chat_id = discussion.messages[0].peer_id.channel_id
                     discussion_peer = PeerChannel(discussion_chat_id)
 
@@ -127,10 +137,11 @@ class UserMessagesSearch:
 
                 except ValueError as e:
                     if is_dev():
-                        logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] ⚠️ Value error: {e}")
+                        logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{bot_client.get_name()}] ⚠️ Value error: {e}")
                     continue
                 except Exception as e:
-                    logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{client.session.filename}] ⚠️ Skipping post {post.id}: {e}")
+                    logger.error(f"[UserMessagesSearch::get_user_comments_reactions][{bot_client.get_name()}] ⚠️ Skipping post {post.id}: {e}")
+                    logger.exception("⚠️ Skipping post error")
                     continue
 
             if comments or reactions:

@@ -80,7 +80,7 @@ class UserInfoCollector:
             logger.info(f"Could not find info for {username}: {e}")
 
         # messages = await self._user_messages_search.get_user_messages_from_chats(client=client, chats=channel_usernames, username=username)
-        comments_reactions_by_channel = await self._user_messages_search.get_user_comments_reactions(client=client, channel_usernames=channel_usernames, user=user)
+        comments_reactions_by_channel = await self._user_messages_search.get_user_comments_reactions(bot_client=bot_client, channel_usernames=channel_usernames, user=user)
 
         await self._clients_creator.disconnect_client(bot_client)
 
