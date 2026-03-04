@@ -1,3 +1,5 @@
+import json
+import os
 from fastapi import APIRouter, Request, HTTPException
 from fastapi.params import Depends
 
@@ -47,22 +49,29 @@ async def self_tuning(request: Request, self_tuning_from_channel: SelfTuningFrom
 @router.get("/test-rag")
 async def test_rag():
     try:
-        queries = [
-            "Добрый вечер! Нужна модель для окрашивания. Оплата только за материал.Подробности в личку. Спасибо🌸", # super neg
-            "Посоветуйте специалиста кто делает ботокс - филеры- нитки - ну и все остальное что поможет стать красавицей",
-            "Сходила к Гале, очень крутой мастер. За 1 процедуру исправила мне мои поврежденные волосы, теперь у меня легкие, гладкие и шелковистые",
-            "Привет! Меня зовут **Марина**, я дипломированный мастер по наращиванию волос ✨Работаю в Newport Beach (Orange County)",
-            "Хочу покрасить волосы в красный цвет, посоветуйте мастера",
-            "Нужен мастер по стрижке мужских волос в Лос-Анджелесе",
-            "Ищу салон красоты для окрашивания волос в блонд",
-            "Девчата - Подскажите мастера по волосам в салоне в Irvine? Не на дому. Благодарю", #pos
-            "Девушки, кто-нибудь может макияж и прическу сделать в следующую субботу 15 ноября в районе 12?", #pos
-            "Нужна модель на окрашивание. Оплата за материал.", #neg
-            "Лицензированный мастер парикмахер Алёна Петрова Звони чтобы узнать подробнее по телефону", #neg
-        ]
+        # Load queries from file, supporting multiline entries separated by a delimiter (e.g., "---")
+        output_dir = os.path.join(os.getcwd(), "data")
+        os.makedirs(output_dir, exist_ok=True)
+        queries_file = os.path.join(output_dir, "test_rag_queries.txt")
+        if os.path.exists(queries_file):
+            with open(queries_file, "r", encoding="utf-8") as f:
+                content = f.read()
+                # Split queries by delimiter (e.g., three dashes on a line)
+                queries = [q.strip() for q in content.split("\n---\n") if q.strip()]
+        else:
+            queries = []
+
         output = []
-        result = run_workflow(queries)
-        output.append(result.get('output', {}))
+        message_texts = []
+        for i, message in enumerate(queries):
+            message_texts.append(json.dumps(
+                {"text": message, "id": i, "name": f"User{i}"},
+                ensure_ascii=False)
+            )
+
+        if message_texts:
+            result = run_workflow(message_texts)
+            output.append(result.get('output', {}))
         # for query in queries:
         #     result = run_workflow([query])
         #     output.append(result.get('output', {}))
