@@ -8,16 +8,16 @@ import boto3
 from bedrock import estimate_nutrition
 
 
-AWS_REGION = os.environ.get("DISHSCAN_AWS_REGION")
-DDB_TABLE_NAME = os.environ["DDB_TABLE_NAME"]
+DISHSCAN_AWS_REGION = os.environ.get("DISHSCAN_AWS_REGION")
+DISHSCAN_DDB_TABLE_NAME = os.environ["DISHSCAN_DDB_TABLE_NAME"]
 
-session = boto3.session.Session(region_name=AWS_REGION)
+session = boto3.session.Session(region_name=DISHSCAN_AWS_REGION)
 s3 = session.client("s3")
 dynamodb = session.resource("dynamodb")
-table = dynamodb.Table(DDB_TABLE_NAME)
+table = dynamodb.Table(DISHSCAN_DDB_TABLE_NAME)
 events = session.client("events")
 
-EVENT_BUS_NAME = os.environ["EVENT_BUS_NAME"]
+DISHSCAN_EVENT_BUS_NAME = os.environ["DISHSCAN_EVENT_BUS_NAME"]
 
 
 def now_iso() -> str:
@@ -38,7 +38,7 @@ def handler(event, context):
     for record in event.get("Records", []):
         body = json.loads(record["body"])
         job_id = body["job_id"]
-        chat_id = int(body["chat_id"])
+        # chat_id = int(body["chat_id"])
         bucket = body["s3_bucket"]
         key = body["s3_key"]
 
@@ -82,7 +82,7 @@ def handler(event, context):
 
             events.put_events(
                 Entries=[{
-                    "EventBusName": EVENT_BUS_NAME,
+                    "EventBusName": DISHSCAN_EVENT_BUS_NAME,
                     "Source": "dishscan.worker",
                     "DetailType": "dishscan.job.completed",
                     "Detail": json.dumps({
@@ -110,7 +110,7 @@ def handler(event, context):
 
             events.put_events(
                 Entries=[{
-                    "EventBusName": EVENT_BUS_NAME,
+                    "EventBusName": DISHSCAN_EVENT_BUS_NAME,
                     "Source": "dishscan.worker",
                     "DetailType": "dishscan.job.completed",
                     "Detail": json.dumps({

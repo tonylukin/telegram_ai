@@ -8,6 +8,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, ContextTyp
 
 from app.bots.dishscan.completions_loop import completions_loop
 from app.config import TELEGRAM_DISHSCAN_BOT_TOKEN
+from app.services.notification_sender import NotificationSender
 from config import settings
 from aws_clients import s3, sqs, events, dynamodb
 
@@ -107,10 +108,11 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def build_bot_app() -> Application:
     application = Application.builder().token(TELEGRAM_DISHSCAN_BOT_TOKEN).build()
     application.bot_data["completions_task"] = None
+    notification_sender = NotificationSender()
 
     async def post_init(app: Application) -> None:
         app.bot_data["completions_task"] = asyncio.create_task(
-            completions_loop(app),
+            completions_loop(app, notification_sender),
             name="dishscan-completions-loop",
         )
 

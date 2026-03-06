@@ -19,7 +19,7 @@ provider "aws" {
   profile = "dishscan"
 
   assume_role {
-    role_arn     = "arn:aws:iam::477975426794:role/TerraformAdminRole"
+    role_arn     = var.assume_role_arn
     session_name = "terraform"
   }
 }

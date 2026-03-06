@@ -3,10 +3,10 @@ import boto3
 import json
 import os
 
-BEDROCK_REGION = os.environ.get("BEDROCK_REGION", "us-east-1")
-BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID")
+DISHSCAN_BEDROCK_REGION = os.environ.get("DISHSCAN_BEDROCK_REGION")
+DISHSCAN_BEDROCK_MODEL_ID = os.environ.get("DISHSCAN_BEDROCK_MODEL_ID")
 
-bedrock = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
+bedrock = boto3.client("bedrock-runtime", region_name=DISHSCAN_BEDROCK_REGION)
 
 def estimate_nutrition(image_bytes: bytes) -> dict:
     # Encode image for multimodal model input
@@ -14,6 +14,7 @@ def estimate_nutrition(image_bytes: bytes) -> dict:
 
     prompt = """
 Вы — помощник по вопросам питания. Проанализируйте фотографию еды и оцените калорийность и макроэлементы.
+Название еды, ингредиенты и другую информацию пишите на русском языке.
 Верните СТРОГО ТОЛЬКО JSON по следующей схеме:
 {
   "items":[{"name":"...", "estimated_grams":123, "calories":123, "protein_g":12, "fat_g":12, "carbs_g":12}],
@@ -37,7 +38,7 @@ def estimate_nutrition(image_bytes: bytes) -> dict:
     }
 
     resp = bedrock.invoke_model(
-        modelId=BEDROCK_MODEL_ID,
+        modelId=DISHSCAN_BEDROCK_MODEL_ID,
         body=json.dumps(body).encode("utf-8"),
         contentType="application/json",
         accept="application/json",

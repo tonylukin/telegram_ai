@@ -43,9 +43,9 @@ docker push "${ECR_URL}:dishscan"
 DISHSCAN_AWS_REGION=us-east-2
 ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
 
-aws ecr get-login-password --region $AWS_REGION \
+aws ecr get-login-password --region $DISHSCAN_AWS_REGION \
   | docker login --username AWS --password-stdin \
-  ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+  ${ACCOUNT_ID}.dkr.ecr.${DISHSCAN_AWS_REGION}.amazonaws.com
 ```
 
 #### Local running for testing Docker with AWS credentials
@@ -88,10 +88,11 @@ aws ecs update-service \
 #### Run the bot locally with AWS credentials
 ```ini
 [profile dishscan-fargate-role]
-role_arn = arn:aws:iam::4...94:role/dishscan-bot-role
+role_arn = arn:aws:iam::477975426794:role/dishscan-bot-role
 source_profile = dishscan
 region = us-east-2
 ```
 ```bash
-PYTHONPATH=. AWS_PROFILE=dishscan-fargate-role python3 app/bots/dishscan/main.py
+#PYTHONPATH=. AWS_PROFILE=dishscan-fargate-role python3 app/bots/dishscan/main.py
+PYTHONPATH=. AWS_PROFILE=dishscan-dev-role python3 app/bots/dishscan/main.py
 ```
