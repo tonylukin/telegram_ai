@@ -1,12 +1,14 @@
 import json
 import uuid
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
 
-from app.bots.dishscan.completions_loop import completions_loop
+from app.bots.dishscan.completions_loop import completions_loop, CACHE_VERSION
+from app.bots.dishscan.lambda_worker.formatting import format_markdown
 from app.config import TELEGRAM_DISHSCAN_BOT_TOKEN
 from app.services.notification_sender import NotificationSender
 from config import settings
@@ -14,14 +16,21 @@ from aws_clients import s3, sqs, events, dynamodb
 
 table = dynamodb.Table(settings.ddb_table_name)
 
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def sha256_hex(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Отправьте мне фото еды 🍽️, и я оценю калории и макроэлементы.\n"
         "Совет: попробуйте сделать чёткий снимок сверху."
     )
+
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -41,6 +50,26 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file_bytes = await tg_file.download_as_bytearray()
         image_bytes = bytes(file_bytes)
 
+        # 0) Compute content hash and check cache
+        image_hash = sha256_hex(image_bytes)
+
+        cache_resp = table.get_item(Key={"pk": f"CACHE#{image_hash}", "sk": "META"})
+        cache_item = cache_resp.get("Item")
+
+        if (
+            cache_item
+            and cache_item.get("status") == "READY"
+            and cache_item.get("cache_version") == CACHE_VERSION
+            and cache_item.get("result") is not None
+        ):
+            # Serve cached result immediately
+            cached_result = cache_item["result"]
+            text = format_markdown(cached_result)
+
+            await message.reply_text(text, parse_mode="Markdown")
+            return
+
+        # Not cached -> proceed as before
         job_id = str(uuid.uuid4())
         s3_key = f"uploads/{chat_id}/{job_id}.jpg"
 
@@ -53,6 +82,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             Metadata={
                 "job_id": job_id,
                 "telegram_chat_id": str(chat_id),
+                "image_hash": image_hash,
+                "cache_version": str(CACHE_VERSION),
             },
         )
 
@@ -64,6 +95,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "chat_id": int(chat_id),
             "s3_bucket": settings.s3_bucket,
             "s3_key": s3_key,
+            "image_hash": image_hash,          # <--- needed for caching later
+            "cache_version": CACHE_VERSION,    # <--- for invalidation
             "status": "PENDING",
             "created_at": now_iso(),
             "updated_at": now_iso(),
@@ -74,6 +107,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "chat_id": int(chat_id),
             "s3_bucket": settings.s3_bucket,
             "s3_key": s3_key,
+            "image_hash": image_hash,
+            "cache_version": CACHE_VERSION,
             "received_at": now_iso(),
             "version": 1,
         }
@@ -98,12 +133,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }])
 
         await message.reply_text(
-            f"Обрабатываю ваше фото! Это может занять около 30 секунд. Я сообщу вам, когда будет готово.",
+            "Обрабатываю ваше фото! Это может занять около 30 секунд. Я сообщу вам, когда будет готово.",
             parse_mode="Markdown"
         )
     except Exception as e:
         print(f"Error in handle_photo: {e}")
-        await update.message.reply_text("Упс, что-то пошло не так при обработке вашего фото. Пожалуйста, попробуйте снова.")
+        await update.message.reply_text(
+            "Упс, что-то пошло не так при обработке вашего фото. Пожалуйста, попробуйте снова."
+        )
+
 
 def build_bot_app() -> Application:
     application = Application.builder().token(TELEGRAM_DISHSCAN_BOT_TOKEN).build()
@@ -132,7 +170,8 @@ def build_bot_app() -> Application:
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     return application
 
+
 if __name__ == "__main__":
     app = build_bot_app()
-    print('DishScan bot started')
+    print("DishScan bot started")
     app.run_polling()

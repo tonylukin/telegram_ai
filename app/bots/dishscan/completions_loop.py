@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from datetime import datetime, timezone
 from telegram.ext import Application
 
 from app.bots.dishscan.lambda_worker.formatting import format_markdown
@@ -13,6 +14,10 @@ DDB_TABLE_NAME = os.environ["DISHSCAN_DDB_TABLE_NAME"]
 COMPLETIONS_QUEUE_URL = os.environ["DISHSCAN_COMPLETIONS_QUEUE_URL"]
 
 table = ddb.Table(DDB_TABLE_NAME)
+CACHE_VERSION = 1
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 async def completions_loop(app: Application, notification_sender: NotificationSender):
@@ -47,7 +52,7 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
 
                     job_id = detail.get("job_id") or body.get("job_id")
                     status = detail.get("status") or body.get("status")
-                    print(f'job_id: {job_id}, status: {status}')
+                    print(f"job_id: {job_id}, status: {status}")
 
                     if not job_id:
                         await asyncio.to_thread(
@@ -67,7 +72,30 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
                     if chat_id:
                         if status == "DONE":
                             result = item.get("result")
-                            text = format_markdown(result)
+                            text = format_markdown(result) if result is not None else "❌ Error: Empty result"
+
+                            # ---- write cache on success (best effort) ----
+                            image_hash = item.get("image_hash")
+                            cache_version = item.get("cache_version", CACHE_VERSION)
+
+                            if image_hash and result is not None:
+                                try:
+                                    # Upsert cache item
+                                    await asyncio.to_thread(
+                                        table.put_item,
+                                        Item={
+                                            "pk": f"CACHE#{image_hash}",
+                                            "sk": "META",
+                                            "status": "READY",
+                                            "cache_version": int(cache_version),
+                                            "result": result,
+                                            "created_at": now_iso(),
+                                            "updated_at": now_iso(),
+                                        },
+                                    )
+                                except Exception as e:
+                                    logger.exception(f"cache put_item failed: {e}")
+
                         else:
                             text = f"❌ Error: {item.get('error', 'Unknown error')}"
 
@@ -87,7 +115,6 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
             except Exception as e:
                 logger.exception(f"completions_loop exception: {e}")
                 await asyncio.sleep(2)
-
 
     except asyncio.CancelledError:
         print("completions_loop: cancelled")
