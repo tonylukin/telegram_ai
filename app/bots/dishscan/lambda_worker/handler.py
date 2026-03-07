@@ -9,12 +9,12 @@ from bedrock import estimate_nutrition
 
 
 DISHSCAN_AWS_REGION = os.environ.get("DISHSCAN_AWS_REGION")
-DISHSCAN_DDB_TABLE_NAME = os.environ["DISHSCAN_DDB_TABLE_NAME"]
+DISHSCAN_DDB_JOBS_TABLE_NAME = os.environ["DISHSCAN_DDB_JOBS_TABLE_NAME"]
 
 session = boto3.session.Session(region_name=DISHSCAN_AWS_REGION)
 s3 = session.client("s3")
 dynamodb = session.resource("dynamodb")
-table = dynamodb.Table(DISHSCAN_DDB_TABLE_NAME)
+jobs_table = dynamodb.Table(DISHSCAN_DDB_JOBS_TABLE_NAME)
 events = session.client("events")
 
 DISHSCAN_EVENT_BUS_NAME = os.environ["DISHSCAN_EVENT_BUS_NAME"]
@@ -44,7 +44,7 @@ def handler(event, context):
 
         try:
             # Mark job as PROCESSING
-            table.update_item(
+            jobs_table.update_item(
                 Key={"pk": f"JOB#{job_id}", "sk": "META"},
                 UpdateExpression="SET #s = :s, updated_at = :u",
                 ExpressionAttributeNames={
@@ -66,7 +66,7 @@ def handler(event, context):
             result_ddb = to_dynamodb_compatible(result)
 
             # Save final result (avoid reserved keyword issues)
-            table.update_item(
+            jobs_table.update_item(
                 Key={"pk": f"JOB#{job_id}", "sk": "META"},
                 UpdateExpression="SET #s = :s, updated_at = :u, #res = :r",
                 ExpressionAttributeNames={
@@ -94,7 +94,7 @@ def handler(event, context):
 
         except Exception as e:
             # Mark job as FAILED (error is reserved word -> alias it)
-            table.update_item(
+            jobs_table.update_item(
                 Key={"pk": f"JOB#{job_id}", "sk": "META"},
                 UpdateExpression="SET #s = :s, updated_at = :u, #err = :err",
                 ExpressionAttributeNames={

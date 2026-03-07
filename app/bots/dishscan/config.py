@@ -10,6 +10,9 @@ class Settings(BaseModel):
     s3_bucket: str = os.environ["DISHSCAN_S3_BUCKET"]
     sqs_queue_url: str = os.environ["DISHSCAN_SQS_QUEUE_URL"]
     event_bus_name: str = os.environ["DISHSCAN_EVENT_BUS_NAME"]
-    ddb_table_name: str = os.environ["DISHSCAN_DDB_TABLE_NAME"]
+    ddb_jobs_table_name: str = 'dishscan-jobs'
+    ddb_user_history_table_name: str = 'dishscan-user-history'
+    ddb_image_cache_table_name: str = 'dishscan-image-cache'
+    image_cache_version: int = 1
 
 settings = Settings()

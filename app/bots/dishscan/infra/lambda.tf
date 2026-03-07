@@ -18,10 +18,10 @@ resource "aws_lambda_function" "worker" {
 
   environment {
     variables = {
-      DISHSCAN_BEDROCK_REGION     = var.bedrock_region
-      DISHSCAN_DDB_TABLE_NAME     = aws_dynamodb_table.jobs.name
-      DISHSCAN_EVENT_BUS_NAME     = aws_cloudwatch_event_bus.bus.name
-      DISHSCAN_BEDROCK_MODEL_ID   = var.bedrock_model_id
+      DISHSCAN_BEDROCK_REGION      = var.bedrock_region
+      DISHSCAN_DDB_JOBS_TABLE_NAME = aws_dynamodb_table.jobs.name
+      DISHSCAN_EVENT_BUS_NAME      = aws_cloudwatch_event_bus.bus.name
+      DISHSCAN_BEDROCK_MODEL_ID    = var.bedrock_model_id
     }
   }
 

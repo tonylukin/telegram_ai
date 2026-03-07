@@ -127,11 +127,11 @@ resource "aws_ecs_task_definition" "bot" {
       }
 
       environment = [
-        { name = "DISHSCAN_AWS_REGION",      value = var.aws_region },
-        { name = "DISHSCAN_S3_BUCKET",       value = aws_s3_bucket.uploads.bucket },
-        { name = "DISHSCAN_SQS_QUEUE_URL",   value = var.sqs_queue_url },
-        { name = "DISHSCAN_DDB_TABLE_NAME",  value = aws_dynamodb_table.jobs.name },
-        { name = "DISHSCAN_EVENT_BUS_NAME",  value = aws_cloudwatch_event_bus.bus.name },
+        { name = "DISHSCAN_AWS_REGION",            value = var.aws_region },
+        { name = "DISHSCAN_S3_BUCKET",             value = aws_s3_bucket.uploads.bucket },
+        { name = "DISHSCAN_SQS_QUEUE_URL",         value = var.sqs_queue_url },
+        { name = "DISHSCAN_DDB_JOBS_TABLE_NAME",   value = aws_dynamodb_table.jobs.name },
+        { name = "DISHSCAN_EVENT_BUS_NAME",        value = aws_cloudwatch_event_bus.bus.name },
         { name = "DISHSCAN_COMPLETIONS_QUEUE_URL", value = var.completions_queue_url }
       ]
     }
@@ -143,21 +143,21 @@ resource "aws_ecs_task_definition" "bot" {
   ]
 }
 
-resource "aws_ecs_service" "bot" {
-  name            = "${local.app}-bot"
-  cluster         = aws_ecs_cluster.dishscan.id
-  task_definition = aws_ecs_task_definition.bot.arn
-  desired_count   = var.ecs_desired_count
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets         = data.aws_subnets.default.ids
-    security_groups = [aws_security_group.bot.id]
-    assign_public_ip = true
-  }
-
-  deployment_minimum_healthy_percent = 0
-  deployment_maximum_percent         = 200
-
-  tags = local.tags
-}
+# resource "aws_ecs_service" "bot" {
+#   name            = "${local.app}-bot"
+#   cluster         = aws_ecs_cluster.dishscan.id
+#   task_definition = aws_ecs_task_definition.bot.arn
+#   desired_count   = var.ecs_desired_count
+#   launch_type     = "FARGATE"
+#
+#   network_configuration {
+#     subnets         = data.aws_subnets.default.ids
+#     security_groups = [aws_security_group.bot.id]
+#     assign_public_ip = true
+#   }
+#
+#   deployment_minimum_healthy_percent = 0
+#   deployment_maximum_percent         = 200
+#
+#   tags = local.tags
+# }
