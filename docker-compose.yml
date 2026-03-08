@@ -117,11 +117,15 @@ services:
     build:
       context: .
       dockerfile: human_scanner_bot.dockerfile
-    command: AWS_PROFILE=dishscan-dev-role python3 app/bots/dishscan/main.py
+    environment:
+      AWS_PROFILE: dishscan-dev-role
+    command: python3 app/bots/dishscan/main.py
     depends_on:
       - db
     env_file:
       - .env
+    volumes:
+      - ~/.aws:/app/.aws:ro
 
 volumes:
   pgdata:
