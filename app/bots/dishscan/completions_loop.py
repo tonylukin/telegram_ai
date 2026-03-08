@@ -4,7 +4,6 @@ import os
 import re
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
-from zoneinfo import ZoneInfo
 
 from botocore.exceptions import ClientError
 from telegram.ext import Application
@@ -20,7 +19,8 @@ COMPLETIONS_QUEUE_URL = os.environ["DISHSCAN_COMPLETIONS_QUEUE_URL"]
 jobs_table = dynamodb.Table(settings.ddb_jobs_table_name)
 image_cache_table = dynamodb.Table(settings.ddb_image_cache_table_name)
 user_history_table = dynamodb.Table(settings.ddb_user_history_table_name)
-DEFAULT_USER_TIMEZONE = "America/Los_Angeles"
+
+DEFAULT_USER_TIMEZONE = "-08:00"
 CACHE_TTL_DAYS = 30
 
 
@@ -36,8 +36,34 @@ def ttl_epoch(days: int = CACHE_TTL_DAYS) -> int:
     return int((now_utc() + timedelta(days=days)).timestamp())
 
 
+def parse_utc_offset_to_tzinfo(offset_str: str) -> timezone:
+    if not offset_str:
+        return timezone(timedelta(hours=-8))
+
+    raw = offset_str.strip()
+    sign = 1
+
+    if raw.startswith("-"):
+        sign = -1
+        raw = raw[1:]
+    elif raw.startswith("+"):
+        raw = raw[1:]
+
+    if ":" in raw:
+        hours_str, minutes_str = raw.split(":", 1)
+        hours = int(hours_str)
+        minutes = int(minutes_str)
+    else:
+        hours = int(raw)
+        minutes = 0
+
+    delta = timedelta(hours=hours, minutes=minutes)
+    return timezone(sign * delta)
+
+
 def to_local_date(utc_dt: datetime, tz_name: str) -> str:
-    return utc_dt.astimezone(ZoneInfo(tz_name)).date().isoformat()
+    tzinfo = parse_utc_offset_to_tzinfo(tz_name)
+    return utc_dt.astimezone(tzinfo).date().isoformat()
 
 
 def safe_number(value, default=0):
