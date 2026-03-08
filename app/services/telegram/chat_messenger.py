@@ -125,7 +125,7 @@ class ChatMessenger:
                     post_texts[linked_chat.id] = (discussion_msg.message, discussion_msg.id)
 
             except Exception as e:
-                logger.error(f"[ChatMessenger::__start_client][{bot_client.get_name()}] {name}: {e}")
+                logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] {name}: {e}")
 
         result = {}
         for chat in chats:
@@ -159,7 +159,7 @@ class ChatMessenger:
 
                 await asyncio.sleep(random.choice(range(10, 15)))
             except Exception as e:
-                logger.error(f"[ChatMessenger::__start_client][{bot_client.get_name()}] Error [{chat.title}]: {e}")
+                logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] Error [{chat.title}]: {e}")
 
         await self._clients_creator.disconnect_client(bot_client)
 
@@ -167,7 +167,7 @@ class ChatMessenger:
             self._session.commit()
         except Exception as e:
             self._session.rollback()
-            logger.error(f'[ChatMessenger::__start_client][{bot_client.get_name()}] Commit error {e}')
+            logger.exception(f'[ChatMessenger::__start_client][{bot_client.get_name()}] Commit error {e}')
         result = {bot_client.get_name(): result}
         logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] Messages sent: {result}")
         return result

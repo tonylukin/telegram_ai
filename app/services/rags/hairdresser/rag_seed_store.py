@@ -28,7 +28,6 @@ class RAGSeedStore:
         emb = self.embed.embed_query(text)
         existing = self.positive.query(query_embeddings=[emb], n_results=1)
         if existing and existing.get("documents") and text in existing["documents"][0]:
-            logger.error(f"'{text}' already exists in positive collection.")
             return False
         new_id = f"pos_{self.positive.count() + 1}"
         self.positive.add(
@@ -43,7 +42,6 @@ class RAGSeedStore:
         emb = self.embed.embed_query(text)
         existing = self.negative.query(query_embeddings=[emb], n_results=1)
         if existing and existing.get("documents") and text in existing["documents"][0]:
-            logger.error(f"'{text}' already exists in negative collection.")
             return False
         new_id = f"neg_{self.negative.count() + 1}"
         self.negative.add(

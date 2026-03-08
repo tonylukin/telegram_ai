@@ -96,7 +96,7 @@ class ReactionSender:
                         tg_post_reaction.reactions.append(reaction)
 
             except Exception as e:
-                logger.error(f"[ReactionSender::__send_reactions_to_my_chats][{bot_client.get_name()}] ⚠️ Failed to react {reaction} to comment {entity.title}: {e}")
+                logger.warning(f"[ReactionSender::__send_reactions_to_my_chats][{bot_client.get_name()}] ⚠️ Failed to react {reaction} to comment {entity.title}: {e}")
 
         return {bot_client.get_name(): counter}
 
@@ -146,7 +146,7 @@ class ReactionSender:
                     logger.info(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] Reacted to comment {message.id} in {chat.title}")
                     counter[chat.title] = counter.get(chat.title, 0) + 1
                 except Exception as e:
-                    logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ⚠️ Failed to react {reaction}: {e}")
+                    logger.warning(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ⚠️ Failed to react {reaction}: {e}")
 
                 reaction_data = {
                     'channel': chat_name,
@@ -157,7 +157,7 @@ class ReactionSender:
                 }
 
         except Exception as e:
-            logger.error(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ❌ Chat {chat.title} error: {e}")
+            logger.exception(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] ❌ Chat {chat.title} error: {e}")
 
         if len(counter) == 0:
             return {}
@@ -177,7 +177,7 @@ class ReactionSender:
             try:
                 result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat, usernames=usernames))
             except Exception as e:
-                logger.error(f"[ReactionSender::__search_chats][{bot_client.get_name()}] Search chats error: {e}")
+                logger.exception(f"[ReactionSender::__search_chats][{bot_client.get_name()}] Search chats error: {e}")
 
         counter_data = {}
         for bot_name in result:
@@ -195,7 +195,7 @@ class ReactionSender:
                 chat = await client.get_entity(chat_name)
                 chats.append(chat)
             except Exception as e:
-                logger.error(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Getting chat instance error: {e}")
+                logger.info(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Getting chat instance error: {e}")
 
         for chat in chats:
             try:
@@ -206,7 +206,7 @@ class ReactionSender:
                 await asyncio.sleep(5)
                 result.update(await self.__make_reactions_for_chat(bot_client=bot_client, chat=chat, usernames=usernames))
             except Exception as e:
-                logger.error(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Search chats error: {e}")
+                logger.warning(f"[ReactionSender::__send_to_specific_chats][{bot_client.get_name()}] Search chats error: {e}")
 
         counter_data = {}
         for bot_name in result:
