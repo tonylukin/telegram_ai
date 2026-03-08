@@ -32,6 +32,7 @@ PYTHONPATH=. python3 app/console/client_messages_listener.py --bot=
 PYTHONPATH=. python3 app/bots/future_ads/main.py
 PYTHONPATH=. python3 app/bots/human_scanner_ai/main.py
 PYTHONPATH=. python3 app/bots/moodflow/main.py
+PYTHONPATH=. python3 app/bots/dishscan/main.py
 ```
 
 ### Run consumers
@@ -141,4 +142,11 @@ PYTHONPATH=. pytest -v
 PYTHONPATH=. python3 app/ml/train/hairdresser/train_sklearn.py # scikit-learn - classic ML, fits for our small datasets (<500 samples)
 PYTHONPATH=. python3 app/ml/train/hairdresser/train_torch.py # pytorch - neural network: not effective on our small datasets
 PYTHONPATH=. python3 app/ml/train/hairdresser/train_tf.py # tensor flow - neural network, deep learning: not effective on our small datasets
+```
+
+### Terraform deployment
+```bash
+terraform init
+terraform plan
+terraform apply
 ```
