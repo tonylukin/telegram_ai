@@ -125,7 +125,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ~/.aws:/app/.aws:ro
+      - ~/.aws:/root/.aws:ro
 
 volumes:
   pgdata:

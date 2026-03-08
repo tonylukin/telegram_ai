@@ -336,8 +336,13 @@ async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def timezone_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        message = update.message
-        chat_id = int(message.chat_id)
+        message = update.effective_message
+        chat = update.effective_chat
+
+        if not message or not chat:
+            return
+
+        chat_id = int(chat.id)
 
         if not context.args:
             current_tz = await asyncio.to_thread(get_user_timezone, chat_id)
@@ -383,9 +388,10 @@ async def timezone_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     except Exception as e:
         logger.exception(e)
-        await update.message.reply_text(
-            "Не удалось сохранить таймзону. Попробуйте ещё раз."
-        )
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "Не удалось сохранить таймзону. Попробуйте ещё раз."
+            )
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
