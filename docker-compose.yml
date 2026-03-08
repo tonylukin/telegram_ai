@@ -112,6 +112,17 @@ services:
     env_file:
       - .env
 
+  dishscan_bot:
+    image: tonylukin/telegram_ai:human_scanner_bot
+    build:
+      context: .
+      dockerfile: human_scanner_bot.dockerfile
+    command: AWS_PROFILE=dishscan-dev-role python3 app/bots/dishscan/main.py
+    depends_on:
+      - db
+    env_file:
+      - .env
+
 volumes:
   pgdata:
   rabbitmq_data:

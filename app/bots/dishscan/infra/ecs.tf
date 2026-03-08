@@ -129,10 +129,10 @@ resource "aws_ecs_task_definition" "bot" {
       environment = [
         { name = "DISHSCAN_AWS_REGION",            value = var.aws_region },
         { name = "DISHSCAN_S3_BUCKET",             value = aws_s3_bucket.uploads.bucket },
-        { name = "DISHSCAN_SQS_QUEUE_URL",         value = var.sqs_queue_url },
+        { name = "DISHSCAN_SQS_QUEUE_URL",         value = aws_sqs_queue.queue.url },
         { name = "DISHSCAN_DDB_JOBS_TABLE_NAME",   value = aws_dynamodb_table.jobs.name },
         { name = "DISHSCAN_EVENT_BUS_NAME",        value = aws_cloudwatch_event_bus.bus.name },
-        { name = "DISHSCAN_COMPLETIONS_QUEUE_URL", value = var.completions_queue_url }
+        { name = "DISHSCAN_COMPLETIONS_QUEUE_URL", value = aws_sqs_queue.completions.url }
       ]
     }
   ])

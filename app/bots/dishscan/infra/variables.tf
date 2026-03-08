@@ -34,12 +34,12 @@ variable "assume_role_arn" {
   default     = "arn:aws:iam::477975426794:role/TerraformAdminRole"
 }
 
-variable "sqs_queue_url" {
+variable "sqs_queue_url" { # todo delete
   type        = string
   default     = "https://sqs.us-east-2.amazonaws.com/477975426794/dishscan-queue"
 }
 
-variable "completions_queue_url" {
+variable "completions_queue_url" { # todo delete
   type        = string
   default     = "https://sqs.us-east-2.amazonaws.com/477975426794/dishscan-completions-dishscan-dev"
 }
