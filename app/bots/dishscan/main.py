@@ -14,6 +14,7 @@ from app.bots.dishscan.completions_loop import (
     record_meal_for_user,
 )
 from app.bots.dishscan.lambda_worker.formatting import format_markdown
+from app.bots.utils import get_user_info_from_update
 from app.config import TELEGRAM_DISHSCAN_BOT_TOKEN
 from app.configs.logger import logger
 from app.services.notification_sender import NotificationSender
@@ -398,6 +399,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         message = update.message
         chat_id = message.chat_id
+        user = get_user_info_from_update(update)
 
         if not message.photo:
             await message.reply_text("Пожалуйста, отправьте фотографию блюда.")
@@ -470,6 +472,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "image_hash": image_hash,
                 "cache_version": settings.image_cache_version,
                 "user_timezone": user_timezone,
+                "user": user,
                 "status": "PENDING",
                 "created_at": now,
                 "updated_at": now,

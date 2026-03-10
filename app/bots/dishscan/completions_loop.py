@@ -238,6 +238,7 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
                     )
                     item = ddb_resp.get("Item", {})
                     chat_id = item.get("chat_id")
+                    user = item.get("user")
 
                     if chat_id:
                         if status == "DONE":
@@ -288,7 +289,10 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
                             parse_mode="Markdown",
                         )
 
-                        notification_message = f"DishScan:\n<blockquote>{text}</blockquote>"
+                        user_info = ''
+                        if user:
+                            user_info = f"[{user.get('name')} {user.get('user_id')}]"
+                        notification_message = f"DishScan{user_info}:\n<blockquote>{text}</blockquote>"
                         await notification_sender.send_notification_message(notification_message)
 
                     await asyncio.to_thread(
