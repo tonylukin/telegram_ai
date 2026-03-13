@@ -154,12 +154,12 @@ class GeneratorFromChannels:
                     result[chat_key].append(text)
 
             except Exception as e:
-                logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] error: {e}")
+                logger.exception(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] error: {e}")
 
         try:
             self._session.flush()
         except Exception as e:
-            logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] Flush error: {e}")
+            logger.exception(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] Flush error: {e}")
 
         await self._clients_creator.disconnect_client(bot_clients[0])
         return result

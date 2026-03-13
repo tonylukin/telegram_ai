@@ -105,7 +105,11 @@ class ReactionSender:
         client = bot_client.client
         try:
             logger.info(f"[ReactionSender::__make_reactions_for_chat][{bot_client.get_name()}] 🧭 Sending reaction for: {chat.title}")
-            messages = await client.get_messages(chat.id, limit=self.LAST_MESSAGES_COUNT_FOR_RANDOM_REACTIONS if not usernames else 100)
+            try:
+                messages = await client.get_messages(chat.id, limit=self.LAST_MESSAGES_COUNT_FOR_RANDOM_REACTIONS if not usernames else 100)
+            except Exception:
+                return {}
+
             discussion_peer = PeerChannel(chat.id)
             me = await client.get_me()
 

@@ -61,7 +61,7 @@ class TextMaker:
                 if 1 >= IMAGE_CREATION_PROBABILITY >= random.random():
                     image = self._ai_client_images.generate_image(AI_NEWS_POST_IMAGE.format(news_text=news_text, by_person=by_person))
             except Exception as e:
-                logger.error(f'[TextMaker::Narrator] Skipping news {news_text}, error: {e}')
+                logger.warning(f'[TextMaker::Narrator] Skipping news {news_text}, error: {e}')
                 continue
             response = Response(original=news_text, generated=text, person=by_person, image=image, emotion=emotion)
             response_list.append(response)
@@ -100,7 +100,7 @@ class TextMaker:
             if self.__get_post_by_external_id(external_id) is not None:
                 logger.info(f'[TextMaker::Narrator] Skipping {text} \'{external_id}\' exists')
         except Exception as e:
-            logger.error(f'[TextMaker::Narrator] Error: {e}')
+            logger.warning(f'[TextMaker::Narrator] Error: {e}')
             return []
 
         response = Response(generated=text, person=by_person, original=original, image=image, emotion=emotion)
@@ -126,4 +126,4 @@ class TextMaker:
             self._session.commit()
         except Exception as e:
             self._session.rollback()
-            logger.error(f'[TextMaker::Narrator] Saving to db error: {e}')
+            logger.exception(f'[TextMaker::Narrator] Saving to db error: {e}')
