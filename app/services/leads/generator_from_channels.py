@@ -116,7 +116,7 @@ class GeneratorFromChannels:
                     text = matched_message.get('text')
                     post_id = matched_message.get('id')
                     sender_name = matched_message.get('name')
-                    if not int(post_id):
+                    if not isinstance(post_id, int):
                         logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] No post_id in matched message: {matched_message}")
                         continue
 
