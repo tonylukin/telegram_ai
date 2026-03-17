@@ -18,7 +18,7 @@ class ChatSearchExporter:
         self._chat_searcher = chat_searcher
         self._clients_creator = clients_creator
 
-    async def export(self, queries: list[str] = None) -> list[tuple[str, str, int]]:
+    async def export(self, queries: list[str] = None, output_filename: str = None, channel_min_count: int = None, channel_max_count: int = None) -> list[tuple[str, str, int]]:
         bot_clients = self._clients_creator.create_clients_from_bots(limit=1)
         if not bot_clients:
             raise Exception("No bots found")
@@ -37,7 +37,7 @@ class ChatSearchExporter:
                     continue
 
                 for channel in query_channels_found:
-                    if channel.username and channel.participants_count and 1000 <= channel.participants_count <= 10000 and not channel.broadcast:
+                    if channel.username and channel.participants_count and (channel_min_count or 1000) <= channel.participants_count <= (channel_max_count or 10000) and not channel.broadcast:
                         if channel.username in ['irvinefriends']:
                             continue
                         channels_found.append(('@' + channel.username, channel.title, channel.participants_count))
@@ -50,7 +50,7 @@ class ChatSearchExporter:
             os.makedirs(output_dir, exist_ok=True)  # create folder if it doesn't exist
 
             # file_path = os.path.join(output_dir, f"chat_search_exporter_found_channels_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
-            file_path = os.path.join(output_dir, f"{CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH.lstrip('data/')}")
+            file_path = os.path.join(output_dir, f"{output_filename or CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH.lstrip('data/')}")
             with open(file_path, mode="w", newline="", encoding="utf-8") as file:
                 writer = csv.writer(file)
                 for username, title, subscribers in channels_found:

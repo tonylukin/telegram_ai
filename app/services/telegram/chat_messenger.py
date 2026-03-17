@@ -63,10 +63,11 @@ class ChatMessenger:
             bot_roles: list[str] = None,
             max_channels_per_bot: int = None,
             bot_limit: int = None,
+            csv_path: str = None,
     ) -> list[dict[str, int]]:
         self._chat_names = names
         if self._chat_names is None:
-            names_from_csv = self.__get_names_from_csv()
+            names_from_csv = self.__get_names_from_csv(csv_path=(csv_path or CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH))
             self._chat_names = names_from_csv if names_from_csv else TELEGRAM_CHATS_TO_POST
         self._messages = messages
         bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=(bot_limit or self.BOT_LIMIT))
@@ -173,7 +174,7 @@ class ChatMessenger:
         return result
 
     @staticmethod
-    def __get_names_from_csv(csv_path: str = CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH, limit: int = 100) -> list[str]:
+    def __get_names_from_csv(csv_path: str, limit: int = 100) -> list[str]:
         if not os.path.exists(csv_path):
             logger.error(f"[ChatMessenger::__get_names_from_csv] {csv_path} doesn't exist")
             return []

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.params import Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ class GenerateMessagesBody(BaseModel):
     bot_roles: Optional[list[str]] = None
     max_channels_per_bot: Optional[int] = None
     bot_limit: Optional[int] = None
+    csv_path: Optional[str] = None
 
 @router.post("/generate-messages")
 async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMessenger = Depends()):
@@ -33,6 +34,7 @@ async def generate_messages(body: GenerateMessagesBody, chat_messenger: ChatMess
             bot_roles=body.bot_roles,
             max_channels_per_bot=body.max_channels_per_bot,
             bot_limit=body.bot_limit,
+            csv_path=body.csv_path,
         )
         return {"status": "ok", "result": result}
     except Exception as e:
@@ -81,9 +83,15 @@ async def bullying(body: BullyingBody, bullying_machine: BullyingMachine = Depen
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/chat-search-export")
-async def chat_search_export(chat_search_exporter: ChatSearchExporter = Depends()):
+async def chat_search_export(request: Request, chat_search_exporter: ChatSearchExporter = Depends()):
     try:
-        result = await chat_search_exporter.export()
+        data = await request.json()
+        result = await chat_search_exporter.export(
+            queries=data.get('queries'),
+            output_filename=data.get('output_filename'),
+            channel_min_count=data.get('channel_min_count'),
+            channel_max_count=data.get('channel_max_count'),
+        )
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -67,6 +67,7 @@ async def main():
     BATCH_SIZE = 5
     parser = argparse.ArgumentParser()
     parser.add_argument("--set_bio", help="Set bio to all bots for promoting", required=False)
+    parser.add_argument("--channels", help="Set channels to join", required=False)
     args = parser.parse_args()
 
     container = punq.Container()
@@ -75,8 +76,9 @@ async def main():
         session=session,
     ))
     clients_creator: ClientsCreator = container.resolve(ClientsCreator)
+
     super_admin_bot_clients = clients_creator.create_clients_from_bots(roles=[Bot.ROLE_SUPER_ADMIN], limit=1)
-    if not super_admin_bot_clients:
+    if not super_admin_bot_clients and not args.channels:
         session.close()
         raise Exception("No client found")
 
@@ -85,13 +87,24 @@ async def main():
         offset = page * BATCH_SIZE
         bot_clients = clients_creator.create_clients_from_bots(limit=BATCH_SIZE, offset=offset)
 
-        for channel in OWN_CHANNELS:
+        if args.channels:
+            channels = [ch.strip() for ch in args.channels.split(',')]
             for bot_client in bot_clients:
                 try:
-                    result = await promote_users(clients_creator, super_admin_bot_clients[0], bot_client, channel, args.set_bio)
-                    logger.info(f"Success: {result}")
+                    await clients_creator.start_client(bot_client, task_name='join_channels')
+                    await join_chats(bot_client.client, channels)
+                    await clients_creator.disconnect_client(bot_client)
+                    logger.info(f"{bot_client.get_name()} joined channels {channels}")
                 except Exception as e:
-                    logger.error(e)
+                    logger.exception(e)
+        else:
+            for channel in OWN_CHANNELS:
+                for bot_client in bot_clients:
+                    try:
+                        result = await promote_users(clients_creator, super_admin_bot_clients[0], bot_client, channel, args.set_bio)
+                        logger.info(f"Success: {result}")
+                    except Exception as e:
+                        logger.exception(e)
         page += 1
         if len(bot_clients) < BATCH_SIZE:
             break
