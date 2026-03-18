@@ -43,7 +43,7 @@ Eсли такого сообщения нет, верни пустую стро
 
 # ------- NODES -------
 def retrieve_node(state: State):
-    examples = store.query("\n\n".join([json.loads(m)["text"] for m in state.messages]), k=10)
+    examples = store.query("\n\n".join([json.loads(m).get("text") for m in state.messages]), k=10)
     return {
         "positive": examples["positive"],
         "negative": examples["negative"],
@@ -51,12 +51,14 @@ def retrieve_node(state: State):
 
 
 def prompt_node(state: State):
+    filtered_messages = [m for m in state.messages if json.loads(m).get('text') not in (state.negative or [])]
     msg = prompt_tpl.format(
         condition=LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
-        messages=','.join(state.messages),
+        messages=','.join(filtered_messages),
         positive=json.dumps(state.positive, ensure_ascii=False),
         negative=json.dumps(state.negative, ensure_ascii=False),
     )
+
     return {"prompt": msg}
 
 
