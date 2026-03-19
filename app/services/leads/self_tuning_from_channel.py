@@ -3,8 +3,13 @@ from fastapi.params import Depends
 import json
 from pathlib import Path
 
+from sqlalchemy.orm import Session
+
 from app.configs.logger import logger
+from app.db.queries.tg_lead import get_tg_lead_by_post_id, get_tg_lead_by_message
+from app.dependencies import get_db
 from app.models.bot import Bot
+from app.models.tg_lead import TgLead
 
 from app.services.telegram.clients_creator import ClientsCreator
 from app.services.telegram.user_messages_search import UserMessagesSearch
@@ -15,9 +20,11 @@ class SelfTuningFromChannel:
             self,
             clients_creator: ClientsCreator = Depends(),
             user_messages_search: UserMessagesSearch = Depends(),
+            session: Session = Depends(get_db)
     ):
         self._clients_creator = clients_creator
         self._user_messages_search = user_messages_search
+        self._session = session
 
     async def tune(self, channel_name: str, user: str, workflow: str) -> dict[str, int] | None:
         bot_clients = self._clients_creator.create_clients_from_bots(roles=[Bot.ROLE_LEAD_FROM_CHANNEL], limit=1)
@@ -39,12 +46,32 @@ class SelfTuningFromChannel:
                 logger.info(f"No messages found for user '{user}' in channel '{channel_name}'")
                 return None
             for message_data in messages_list:
+                sanitized_message = self.__sanitize_text(message_data.get('message'))
                 if message_data.get('like') is True:
-                    if store.add_positive(self.__sanitize_text(message_data.get('message'))):
+                    if store.add_positive(sanitized_message):
                         positive_counter += 1
                 if message_data.get('like') is False:
-                    if store.add_negative(self.__sanitize_text(message_data.get('message'))):
+                    if store.add_negative(sanitized_message):
                         negative_counter += 1
+                    try:
+                        lead = get_tg_lead_by_post_id(session=self._session, post_id=message_data.get('id'))
+                        if not lead:
+                            lead = get_tg_lead_by_message(session=self._session, message=message_data.get('message'), workflow=workflow)
+                        if not lead:
+                            lead = TgLead(
+                                channel=channel_name,
+                                message=sanitized_message,
+                                post_id=message_data.get('id'),
+                                bot_id=bot_clients[0].bot.id,
+                                workflow=workflow,
+                            )
+                            self._session.add(lead)
+                        lead.reaction = TgLead.REACTION_DISLIKE
+                        lead.workflow = workflow
+                    except Exception as e:
+                        logger.exception(f"[SelfTuningFromChannel::tune] Reaction saving error: {e}")
+
+            self._session.flush()
 
         except Exception as e:
             logger.error(f"Error during self-tuning: {e}")

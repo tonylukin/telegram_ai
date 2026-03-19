@@ -142,6 +142,7 @@ class GeneratorFromChannels:
                         answer=answer,
                         post_id=post_id,
                         bot_id=bot_clients[0].bot.id,
+                        workflow=workflow,
                     )
                     self._session.add(tg_lead)
                     if self._notify_about_leads and is_prod() and (sender_name or '').strip().lower() not in ['', 'unknown']:
