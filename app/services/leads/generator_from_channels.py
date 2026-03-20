@@ -136,15 +136,19 @@ class GeneratorFromChannels:
                             logger.error(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] replying to message error: {matched_message}")
                             continue
 
-                    tg_lead = TgLead(
-                        channel=chat.username or chat.id,
-                        message=text,
-                        answer=answer,
-                        post_id=post_id,
-                        bot_id=bot_clients[0].bot.id,
-                        workflow=workflow,
-                    )
-                    self._session.add(tg_lead)
+                    chat_index_key = f'@{chat.username}' if chat.username else chat.id
+                    tg_lead = get_tg_lead_by_post_id(session=self._session, post_id=post_id, channel=chat_index_key)
+                    if tg_lead is None:
+                        tg_lead = TgLead(
+                            channel=chat_index_key,
+                            message=text,
+                            answer=answer,
+                            post_id=post_id,
+                            bot_id=bot_clients[0].bot.id,
+                            workflow=workflow,
+                        )
+                        self._session.add(tg_lead)
+
                     if self._notify_about_leads and is_prod() and (sender_name or '').strip().lower() not in ['', 'unknown']:
                         message = f'Found new lead from {sender_name} in chat @{chat.username} [{chat.id}]\n'
                         message += f'<blockquote>{text}</blockquote>'

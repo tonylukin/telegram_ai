@@ -55,9 +55,9 @@ class SelfTuningFromChannel:
                         negative_counter += 1
                     try:
                         lead = get_tg_lead_by_post_id(session=self._session, post_id=message_data.get('id'), channel=channel_name)
-                        if not lead:
-                            lead = get_tg_lead_by_message(session=self._session, message=message_data.get('message'), workflow=workflow)
-                        if not lead:
+                        if lead is None:
+                            lead = get_tg_lead_by_message(session=self._session, message=sanitized_message, workflow=workflow)
+                        if lead is None:
                             lead = TgLead(
                                 channel=channel_name,
                                 message=sanitized_message,
