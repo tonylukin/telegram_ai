@@ -163,13 +163,28 @@ resource "aws_iam_role_policy" "lambda_bedrock_invoke" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "BedrockInvokeClaude"
+        Sid    = "BedrockInferenceProfiles"
         Effect = "Allow"
         Action = [
-          "bedrock:InvokeModel"
+          "bedrock:GetInferenceProfile",
+          "bedrock:ListInferenceProfiles",
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
         ]
         Resource = [
-          "arn:aws:bedrock:us-east-1::foundation-model/anthropic.*"
+          "arn:aws:bedrock:*:*:inference-profile/*",
+          "arn:aws:bedrock:*:*:application-inference-profile/*"
+        ]
+      },
+      {
+        Sid    = "BedrockFoundationModels"
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
+        ]
+        Resource = [
+          "arn:aws:bedrock:*::foundation-model/*"
         ]
       }
     ]

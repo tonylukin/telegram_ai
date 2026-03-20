@@ -120,7 +120,7 @@ class GeneratorFromChannels:
                         logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] No post_id in matched message: {matched_message}")
                         continue
 
-                    if get_tg_lead_by_post_id(session=self._session, post_id=post_id):
+                    if get_tg_lead_by_post_id(session=self._session, post_id=post_id, channel=('@' + chat.username)):
                         logger.warning(f"[GeneratorFromChannels::generate_from_telegram_channels][{bot_clients[0].get_name()}] lead exists, skip message #{post_id}: {matched_message}")
                         continue
 

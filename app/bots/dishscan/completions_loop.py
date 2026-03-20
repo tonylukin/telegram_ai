@@ -244,6 +244,7 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
                         if status == "DONE":
                             result = item.get("result")
                             text = format_markdown(result) if result is not None else "❌ Error: Empty result"
+                            user_text = text
 
                             image_hash = item.get("image_hash")
                             cache_version = item.get("cache_version", settings.image_cache_version)
@@ -282,10 +283,11 @@ async def completions_loop(app: Application, notification_sender: NotificationSe
 
                         else:
                             text = f"❌ Error: {item.get('error', 'Unknown error')}"
+                            user_text = 'Error'
 
                         await app.bot.send_message(
                             chat_id=int(chat_id),
-                            text=text,
+                            text=user_text,
                             parse_mode="Markdown",
                         )
 
