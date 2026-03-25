@@ -1,8 +1,7 @@
 import json
 import uuid
 import asyncio
-import hashlib
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from boto3.dynamodb.conditions import Key
@@ -13,7 +12,10 @@ from app.bots.dishscan.completions_loop import (
     completions_loop,
     record_meal_for_user,
 )
+from app.bots.dishscan.date_helpers import now_iso, DEFAULT_USER_TIMEZONE, today_local_date, sha256_hex, \
+    parse_history_date_arg, HISTORY_LIMIT, parse_utc_offset_to_tzinfo, normalize_utc_offset, history_date_hint
 from app.bots.dishscan.lambda_worker.formatting import format_markdown
+from app.bots.dishscan.string_helpers import extract_meal_title, to_decimal, build_today_text, build_history_text
 from app.bots.utils import get_user_info_from_update
 from app.config import TELEGRAM_DISHSCAN_BOT_TOKEN
 from app.configs.logger import logger
@@ -24,136 +26,6 @@ from aws_clients import s3, sqs, events, dynamodb
 jobs_table = dynamodb.Table(settings.ddb_jobs_table_name)
 image_cache_table = dynamodb.Table(settings.ddb_image_cache_table_name)
 user_history_table = dynamodb.Table(settings.ddb_user_history_table_name)
-
-DEFAULT_USER_TIMEZONE = "-08:00"
-HISTORY_LIMIT = 20
-
-SUPPORTED_HISTORY_DATE_FORMATS = [
-    "%d.%m.%Y",
-]
-
-
-def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def sha256_hex(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
-def parse_utc_offset_to_tzinfo(offset_str: str) -> timezone:
-    if not offset_str:
-        return timezone(timedelta(hours=-8))
-
-    sign = 1
-    raw = offset_str.strip()
-
-    if raw[0] == "-":
-        sign = -1
-        raw = raw[1:]
-    elif raw[0] == "+":
-        raw = raw[1:]
-
-    if ":" in raw:
-        hours_str, minutes_str = raw.split(":", 1)
-        hours = int(hours_str)
-        minutes = int(minutes_str)
-    else:
-        hours = int(raw)
-        minutes = 0
-
-    delta = timedelta(hours=hours, minutes=minutes)
-    return timezone(sign * delta)
-
-
-def normalize_utc_offset(raw: str) -> str | None:
-    if not raw:
-        return None
-
-    value = raw.strip().replace("utc", "").replace("UTC", "").strip()
-
-    try:
-        if value[0] not in {"+", "-"}:
-            return None
-
-        sign = value[0]
-        body = value[1:]
-
-        if ":" in body:
-            hours_str, minutes_str = body.split(":", 1)
-            hours = int(hours_str)
-            minutes = int(minutes_str)
-        else:
-            hours_float = float(body)
-            hours = int(hours_float)
-            minutes = int(round((hours_float - hours) * 60))
-
-        if minutes < 0:
-            minutes = abs(minutes)
-
-        total_minutes = hours * 60 + minutes
-        if total_minutes > 14 * 60:
-            return None
-
-        return f"{sign}{hours:02d}:{minutes:02d}"
-    except Exception:
-        return None
-
-
-def today_local_date(tz_name: str = DEFAULT_USER_TIMEZONE) -> str:
-    tzinfo = parse_utc_offset_to_tzinfo(tz_name)
-    return datetime.now(timezone.utc).astimezone(tzinfo).date().isoformat()
-
-
-def format_num(value) -> str:
-    if isinstance(value, Decimal):
-        if value == value.to_integral_value():
-            return str(int(value))
-        return format(value.normalize(), "f").rstrip("0").rstrip(".")
-
-    if isinstance(value, float):
-        if value.is_integer():
-            return str(int(value))
-        return str(value)
-
-    return str(value)
-
-
-def history_date_hint() -> str:
-    return "dd.mm.YYYY"
-
-
-def parse_flexible_date(raw: str, formats: list[str]) -> str | None:
-    raw = raw.strip()
-    for fmt in formats:
-        try:
-            return datetime.strptime(raw, fmt).date().isoformat()
-        except ValueError:
-            continue
-    return None
-
-
-def parse_history_date_arg(args: list[str]) -> str | None:
-    if not args:
-        return None
-    return parse_flexible_date(args[0], SUPPORTED_HISTORY_DATE_FORMATS)
-
-
-def format_consumed_time_for_user(consumed_at: str, tz_name: str = DEFAULT_USER_TIMEZONE) -> str:
-    if not consumed_at:
-        return "--:--"
-
-    try:
-        dt_utc = datetime.fromisoformat(consumed_at)
-        if dt_utc.tzinfo is None:
-            dt_utc = dt_utc.replace(tzinfo=timezone.utc)
-
-        tzinfo = parse_utc_offset_to_tzinfo(tz_name)
-        dt_local = dt_utc.astimezone(tzinfo)
-        return dt_local.strftime("%H:%M")
-    except Exception as e:
-        logger.exception(e)
-        return "--:--"
 
 
 def get_user_timezone(chat_id: int) -> str:
@@ -191,75 +63,157 @@ def set_user_timezone(chat_id: int, timezone_name: str) -> None:
     )
 
 
-def build_today_text(day_item: dict | None, local_date: str) -> str:
-    if not day_item:
-        return (
-            f"📊 За сегодня ({local_date}) пока ничего не записано.\n"
-            f"Отправьте фото еды, и я начну вести историю."
-        )
+def get_last_meal(chat_id: int) -> dict | None:
+    resp = user_history_table.query(
+        KeyConditionExpression=(
+            Key("pk").eq(f"USER#{chat_id}") & Key("sk").begins_with("MEAL#")
+        ),
+        ScanIndexForward=False,
+        Limit=1,
+    )
+    items = resp.get("Items", [])
+    return items[0] if items else None
 
-    total_calories = day_item.get("total_calories", 0)
-    total_protein = day_item.get("total_protein_g", 0)
-    total_fat = day_item.get("total_fat_g", 0)
-    total_carbs = day_item.get("total_carbs_g", 0)
-    meals_count = day_item.get("meals_count", 0)
 
-    return (
-        f"📊 *Итого за сегодня* ({local_date})\n\n"
-        f"Приёмов пищи: *{format_num(meals_count)}*\n"
-        f"Калории: *{format_num(total_calories)} kcal*\n"
-        f"Белки: *{format_num(total_protein)} g*\n"
-        f"Жиры: *{format_num(total_fat)} g*\n"
-        f"Углеводы: *{format_num(total_carbs)} g*"
+def clamp_day_totals(chat_id: int, local_date: str) -> None:
+    day_key = {"pk": f"USER#{chat_id}", "sk": f"DAY#{local_date}"}
+    resp = user_history_table.get_item(Key=day_key)
+    item = resp.get("Item")
+    if not item:
+        return
+
+    total_calories = max(to_decimal(item.get("total_calories", 0)), Decimal("0"))
+    total_protein = max(to_decimal(item.get("total_protein_g", 0)), Decimal("0"))
+    total_fat = max(to_decimal(item.get("total_fat_g", 0)), Decimal("0"))
+    total_carbs = max(to_decimal(item.get("total_carbs_g", 0)), Decimal("0"))
+    meals_count = max(to_decimal(item.get("meals_count", 0)), Decimal("0"))
+
+    user_history_table.update_item(
+        Key=day_key,
+        UpdateExpression="""
+            SET total_calories = :calories,
+                total_protein_g = :protein,
+                total_fat_g = :fat,
+                total_carbs_g = :carbs,
+                meals_count = :meals_count,
+                updated_at = :updated_at
+        """,
+        ExpressionAttributeValues={
+            ":calories": total_calories,
+            ":protein": total_protein,
+            ":fat": total_fat,
+            ":carbs": total_carbs,
+            ":meals_count": meals_count,
+            ":updated_at": now_iso(),
+        },
     )
 
 
-def extract_meal_title(result: dict | None) -> str:
-    if not isinstance(result, dict):
-        return "Приём пищи"
+def delete_last_meal_for_user(chat_id: int) -> dict | None:
+    meal_item = get_last_meal(chat_id)
+    if not meal_item:
+        return None
 
-    items = result.get("items")
-    if isinstance(items, list) and items:
-        names = []
-        for item in items[:3]:
-            if isinstance(item, dict) and item.get("name"):
-                names.append(str(item["name"]))
-        if names:
-            if len(items) > 3:
-                return ", ".join(names) + "…"
-            return ", ".join(names)
+    pk = str(meal_item["pk"])
+    sk = str(meal_item["sk"])
+    local_date = str(meal_item.get("local_date") or sk.split("#")[1])
+    day_sk = f"DAY#{local_date}"
 
-    if result.get("name"):
-        return str(result["name"])
+    calories = to_decimal(meal_item.get("calories", 0))
+    protein = to_decimal(meal_item.get("protein_g", 0))
+    fat = to_decimal(meal_item.get("fat_g", 0))
+    carbs = to_decimal(meal_item.get("carbs_g", 0))
 
-    return "Приём пищи"
+    day_resp = user_history_table.get_item(
+        Key={"pk": f"USER#{chat_id}", "sk": day_sk}
+    )
+    day_item = day_resp.get("Item")
+    if not day_item:
+        raise ValueError(f"DAY item not found for chat_id={chat_id}, local_date={local_date}")
+
+    new_total_calories = max(
+        to_decimal(day_item.get("total_calories", 0)) - calories,
+        Decimal("0"),
+    )
+    new_total_protein = max(
+        to_decimal(day_item.get("total_protein_g", 0)) - protein,
+        Decimal("0"),
+    )
+    new_total_fat = max(
+        to_decimal(day_item.get("total_fat_g", 0)) - fat,
+        Decimal("0"),
+    )
+    new_total_carbs = max(
+        to_decimal(day_item.get("total_carbs_g", 0)) - carbs,
+        Decimal("0"),
+    )
+    new_meals_count = max(
+        to_decimal(day_item.get("meals_count", 0)) - Decimal("1"),
+        Decimal("0"),
+    )
+
+    user_history_table.delete_item(
+        Key={"pk": pk, "sk": sk},
+        ConditionExpression="attribute_exists(pk) AND attribute_exists(sk)",
+    )
+
+    user_history_table.update_item(
+        Key={"pk": f"USER#{chat_id}", "sk": day_sk},
+        UpdateExpression="""
+            SET total_calories = :total_calories,
+                total_protein_g = :total_protein_g,
+                total_fat_g = :total_fat_g,
+                total_carbs_g = :total_carbs_g,
+                meals_count = :meals_count,
+                updated_at = :updated_at
+        """,
+        ExpressionAttributeValues={
+            ":total_calories": new_total_calories,
+            ":total_protein_g": new_total_protein,
+            ":total_fat_g": new_total_fat,
+            ":total_carbs_g": new_total_carbs,
+            ":meals_count": new_meals_count,
+            ":updated_at": now_iso(),
+        },
+        ConditionExpression="attribute_exists(pk) AND attribute_exists(sk)",
+    )
+
+    return meal_item
 
 
-def build_history_text(items: list[dict], local_date: str) -> str:
-    if not items:
-        return f"📝 За дату *{local_date}* история приёмов пищи пуста."
+async def delete_last_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        message = update.effective_message
+        chat = update.effective_chat
 
-    lines = [f"📝 *История за {local_date}*\n"]
+        if not message or not chat:
+            return
 
-    for idx, item in enumerate(items, start=1):
-        result = item.get("result")
-        title = extract_meal_title(result)
-        calories = format_num(item.get("calories", 0))
-        protein = format_num(item.get("protein_g", 0))
-        fat = format_num(item.get("fat_g", 0))
-        carbs = format_num(item.get("carbs_g", 0))
-        consumed_at = str(item.get("consumed_at", ""))
-        timezone_name = str(item.get("timezone", DEFAULT_USER_TIMEZONE))
-
-        time_part = format_consumed_time_for_user(consumed_at, timezone_name)
-
-        lines.append(
-            f"{idx}. *{title}*\n"
-            f"   🕒 {time_part}\n"
-            f"   🔥 {calories} kcal | Б {protein} g | Ж {fat} g | У {carbs} g"
+        deleted_item = await asyncio.to_thread(
+            delete_last_meal_for_user,
+            int(chat.id),
         )
 
-    return "\n\n".join(lines)
+        if not deleted_item:
+            await message.reply_text("История пуста, удалять нечего.")
+            return
+
+        title = extract_meal_title(deleted_item.get("result"))
+        local_date = str(
+            deleted_item.get("local_date") or str(deleted_item["sk"]).split("#")[1]
+        )
+
+        await message.reply_text(
+            f"✅ Удалил последнюю запись: *{title}*\n"
+            f"Дата: *{local_date}*",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.exception(e)
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "Не удалось удалить последнюю запись. Попробуйте ещё раз."
+            )
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -269,6 +223,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Команды:\n"
         "/today — сумма калорий и макросов за сегодня\n"
         f"/history {history_date_hint()} — история приёмов пищи за дату\n"
+        "/delete_last — удалить последнюю запись\n"
         "/timezone — показать текущую таймзону\n"
         "/timezone -8 — установить UTC offset\n"
         "/timezone +5.5 — установить UTC offset"
@@ -546,6 +501,7 @@ def build_bot_app() -> Application:
     application.add_handler(CommandHandler("today", today))
     application.add_handler(CommandHandler("history", history))
     application.add_handler(CommandHandler("timezone", timezone_cmd))
+    application.add_handler(CommandHandler("delete_last", delete_last_cmd))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     return application
 

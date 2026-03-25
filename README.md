@@ -32,7 +32,7 @@ PYTHONPATH=. python3 app/console/client_messages_listener.py --bot=
 PYTHONPATH=. python3 app/bots/future_ads/main.py
 PYTHONPATH=. python3 app/bots/human_scanner_ai/main.py
 PYTHONPATH=. python3 app/bots/moodflow/main.py
-PYTHONPATH=. python3 app/bots/dishscan/main.py
+PYTHONPATH=. AWS_PROFILE=dishscan-dev-role python3 app/bots/dishscan/main.py
 ```
 
 ### Run consumers
