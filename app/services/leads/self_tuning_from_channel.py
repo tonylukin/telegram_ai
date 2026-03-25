@@ -158,5 +158,5 @@ class SelfTuningFromChannel:
         return None
 
     def __sanitize_text(self, text: str) -> str:
-        sanitized_text = re.search(r'^Found new lead.*?\]\s*(.*?)\s*(\[\d+,[^\]]*\])*\s*$', text, re.S)
+        sanitized_text = re.search(r'^\**Found new lead.*?\]\s*(.*?)\s*(\[\d+,[^\]]*\])*\s*$', text, re.S)
         return sanitized_text.group(1) if sanitized_text else text
