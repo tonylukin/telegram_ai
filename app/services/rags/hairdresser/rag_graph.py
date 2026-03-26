@@ -1,14 +1,13 @@
 import json
 from langgraph.graph import StateGraph, END
-from langgraph.graph.message import add_messages
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 
-from app.config import OPEN_AI_TEXT_MODEL, LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION
+from app.config import OPEN_AI_TEXT_MODEL, HAIRDRESSER_LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION, \
+    LEADS_FROM_CHANNEL_AI_SYSTEM_PROMPT
 from app.db.queries.tg_lead import get_tg_leads_by_messages
 from app.db.session import Session
-from app.dependencies import get_db
 from .rag_seed_store import RAGSeedStore
 
 
@@ -24,27 +23,11 @@ class State(BaseModel):
 
 # ------- COMPONENTS -------
 store = RAGSeedStore()
-# llm = ChatOpenAI(model="gpt-4o-mini")
 llm = ChatOpenAI(model=OPEN_AI_TEXT_MODEL)
 
 WORKFLOW_NAME = 'hairdresser'
 
-prompt_tpl = PromptTemplate.from_template("""
-Даны сообщения людей на разные темы.
-Нужно выбрать сообщения ТОЛЬКО из списка сообщений, используя условие: "{condition}".
-
-Список сообщений, из которых нужно выбрать, в формате JSON {{"text": "текст сообщения", "id": "айди сообщения", "name": "имя отправителя"}}:
-[{messages}]
-
-Список положительных примеров в формате JSON. Просто для формирования контекста и понимания, какие сообщения были выбраны удачно из другого списка, из этого списка нельзя выбирать:
-{positive}
-
-Отрицательные примеры в формате JSON, подобные сообщения нельзя выбирать:
-{negative}
-
-Верни первое сообщение из списка, которое удовлетворяет указанному условию в формате JSON с той же структурой {{"text", "id", "name"}}. 
-Eсли такого сообщения нет, верни пустую строку.
-""")
+prompt_tpl = PromptTemplate.from_template(LEADS_FROM_CHANNEL_AI_SYSTEM_PROMPT)
 
 
 # ------- NODES -------
@@ -65,12 +48,10 @@ def fetch_existing(state: State):
 
 
 def prompt_node(state: State):
-    filtered_messages = [m for m in state.messages if json.loads(m).get('text') not in state.existing_negative]
+    filtered_messages = [m for m in state.messages if json.loads(m).get('text') not in [*state.existing_negative, *state.negative]]
     msg = prompt_tpl.format(
-        condition=LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
+        condition=HAIRDRESSER_LEADS_FROM_CHANNEL_AI_PROMPT_CONDITION,
         messages=','.join(filtered_messages),
-        positive=json.dumps(state.positive, ensure_ascii=False),
-        negative=json.dumps(state.negative, ensure_ascii=False),
     )
 
     return {"prompt": msg}

@@ -9,7 +9,7 @@ class RAGSeedStore:
     def __init__(self, path: str = "./chroma_db"):
         self.client = PersistentClient(path=path)
 
-        self.embed = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)  # можно заменить на Google или LiteLLM
+        self.embed = OpenAIEmbeddings(openai_api_key=OPENAI_API_KEY)
 
         self.positive = self.client.get_or_create_collection(
             name="hairdresser_positive_cases",
