@@ -1,7 +1,7 @@
 import json
 import uuid
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 
 from boto3.dynamodb.conditions import Key
@@ -26,6 +26,8 @@ from aws_clients import s3, sqs, events, dynamodb
 jobs_table = dynamodb.Table(settings.ddb_jobs_table_name)
 image_cache_table = dynamodb.Table(settings.ddb_image_cache_table_name)
 user_history_table = dynamodb.Table(settings.ddb_user_history_table_name)
+
+REFINE_WINDOW_MINUTES = 15
 
 
 def get_user_timezone(chat_id: int) -> str:
@@ -61,6 +63,103 @@ def set_user_timezone(chat_id: int, timezone_name: str) -> None:
             "updated_at": now,
         }
     )
+
+def set_last_refine_context(
+    chat_id: int,
+    job_id: str,
+    s3_bucket: str,
+    s3_key: str,
+    image_hash: str,
+    user_timezone: str,
+    ttl_minutes: int = REFINE_WINDOW_MINUTES,
+) -> None:
+    now = datetime.now(timezone.utc)
+    expires_at = (now + timedelta(minutes=ttl_minutes)).isoformat()
+
+    existing = user_history_table.get_item(
+        Key={"pk": f"USER#{chat_id}", "sk": "PROFILE"}
+    ).get("Item")
+
+    created_at = existing.get("created_at", now.isoformat()) if existing else now.isoformat()
+
+    user_history_table.put_item(
+        Item={
+            "pk": f"USER#{chat_id}",
+            "sk": "PROFILE",
+            "type": "PROFILE",
+            "chat_id": int(chat_id),
+            "timezone": (existing or {}).get("timezone", DEFAULT_USER_TIMEZONE),
+            "created_at": created_at,
+            "updated_at": now.isoformat(),
+            "last_refine_job_id": job_id,
+            "last_refine_s3_bucket": s3_bucket,
+            "last_refine_s3_key": s3_key,
+            "last_refine_image_hash": image_hash,
+            "last_refine_user_timezone": user_timezone,
+            "last_refine_expires_at": expires_at,
+        }
+    )
+
+
+def clear_last_refine_context(chat_id: int) -> None:
+    resp = user_history_table.get_item(
+        Key={"pk": f"USER#{chat_id}", "sk": "PROFILE"}
+    )
+    item = resp.get("Item")
+    if not item:
+        return
+
+    for field in [
+        "last_refine_job_id",
+        "last_refine_s3_bucket",
+        "last_refine_s3_key",
+        "last_refine_image_hash",
+        "last_refine_user_timezone",
+        "last_refine_expires_at",
+    ]:
+        item.pop(field, None)
+
+    item["updated_at"] = now_iso()
+    user_history_table.put_item(Item=item)
+
+
+def get_last_refine_context(chat_id: int) -> dict | None:
+    resp = user_history_table.get_item(
+        Key={"pk": f"USER#{chat_id}", "sk": "PROFILE"}
+    )
+    item = resp.get("Item")
+    if not item:
+        return None
+
+    required_fields = [
+        "last_refine_job_id",
+        "last_refine_s3_bucket",
+        "last_refine_s3_key",
+        "last_refine_image_hash",
+        "last_refine_expires_at",
+    ]
+
+    if not all(item.get(field) for field in required_fields):
+        return None
+
+    try:
+        expires_at = datetime.fromisoformat(str(item["last_refine_expires_at"]))
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+    if expires_at < datetime.now(timezone.utc):
+        return None
+
+    return {
+        "job_id": str(item["last_refine_job_id"]),
+        "s3_bucket": str(item["last_refine_s3_bucket"]),
+        "s3_key": str(item["last_refine_s3_key"]),
+        "image_hash": str(item["last_refine_image_hash"]),
+        "user_timezone": str(item.get("last_refine_user_timezone") or DEFAULT_USER_TIMEZONE),
+        "expires_at": str(item["last_refine_expires_at"]),
+    }
 
 
 def get_last_meal(chat_id: int) -> dict | None:
@@ -216,6 +315,106 @@ async def delete_last_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
 
 
+async def fix_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        message = update.effective_message
+        chat = update.effective_chat
+
+        if not message or not chat:
+            return
+
+        clarification_text = " ".join(context.args).strip()
+        if not clarification_text:
+            await message.reply_text(
+                "Напишите уточнение после команды.\n\n"
+                "Пример:\n"
+                "`/fix это 2 куска пиццы, соус отдельно, кола 330 мл`\n"
+                "`/fix тут куриная грудка 180 г и рис 150 г`\n"
+                "`/fix салат был без соуса`",
+                parse_mode="Markdown",
+            )
+            return
+
+        chat_id = int(chat.id)
+        refine_ctx = await asyncio.to_thread(get_last_refine_context, chat_id)
+
+        if not refine_ctx:
+            await message.reply_text(
+                "Нет недавнего блюда для уточнения.\n"
+                "Сначала отправьте фото еды, а затем при необходимости используйте `/fix ...`",
+                parse_mode="Markdown",
+            )
+            return
+
+        new_job_id = str(uuid.uuid4())
+        now = now_iso()
+        user = get_user_info_from_update(update)
+
+        await asyncio.to_thread(
+            jobs_table.put_item,
+            Item={
+                "pk": f"JOB#{new_job_id}",
+                "sk": "META",
+                "job_id": new_job_id,
+                "job_type": "REFINE",
+                "parent_job_id": refine_ctx["job_id"],
+                "chat_id": chat_id,
+                "s3_bucket": refine_ctx["s3_bucket"],
+                "s3_key": refine_ctx["s3_key"],
+                "image_hash": refine_ctx["image_hash"],
+                "cache_version": settings.image_cache_version,
+                "user_timezone": refine_ctx["user_timezone"],
+                "clarification_text": clarification_text,
+                "status": "PENDING",
+                "user": user,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+        payload = {
+            "job_id": new_job_id,
+            "job_type": "REFINE",
+            "parent_job_id": refine_ctx["job_id"],
+            "chat_id": chat_id,
+            "s3_bucket": refine_ctx["s3_bucket"],
+            "s3_key": refine_ctx["s3_key"],
+            "image_hash": refine_ctx["image_hash"],
+            "cache_version": settings.image_cache_version,
+            "user_timezone": refine_ctx["user_timezone"],
+            "clarification_text": clarification_text,
+            "received_at": now_iso(),
+            "version": 1,
+        }
+
+        sqs.send_message(
+            QueueUrl=settings.sqs_queue_url,
+            MessageBody=json.dumps(payload),
+            MessageAttributes={
+                "eventType": {"StringValue": "DishScanRefineRequested", "DataType": "String"},
+                "jobId": {"StringValue": new_job_id, "DataType": "String"},
+            },
+        )
+
+        events.put_events(Entries=[{
+            "EventBusName": settings.event_bus_name,
+            "Source": "dishscan.telegram",
+            "DetailType": "DishScanRefineRequested",
+            "Time": datetime.now(timezone.utc),
+            "Detail": json.dumps(payload),
+        }])
+
+        await message.reply_text(
+            "Принял уточнение. Пересчитываю по фото с учётом вашего описания... ⏳"
+        )
+    except Exception as e:
+        logger.exception(e)
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "Не удалось запустить перерасчёт. Попробуйте ещё раз."
+            )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Отправьте мне фото еды 🍽️, и я оценю калории и макроэлементы.\n"
@@ -224,9 +423,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/today — сумма калорий и макросов за сегодня\n"
         f"/history {history_date_hint()} — история приёмов пищи за дату\n"
         "/delete_last — удалить последнюю запись\n"
+        "/fix <текст> — пересчитать последнее блюдо с учётом уточнения\n"
         "/timezone — показать текущую таймзону\n"
         "/timezone -8 — установить UTC offset\n"
-        "/timezone +5.5 — установить UTC offset"
+        "/timezone +5.5 — установить UTC offset\n\n"
+        "Пример уточнения:\n"
+        "`/fix тут не 1 бургер, а 2 маленьких бургера и картошка 120 г`",
+        parse_mode="Markdown",
     )
 
 
@@ -464,7 +667,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }])
 
         await message.reply_text(
-            "Обрабатываю ваше фото! Это может занять около 30 секунд. Я сообщу вам, когда будет готово.",
+            "Обрабатываю ваше фото! Это может занять около 30 секунд. Я сообщу вам, когда будет готово.\n\n"
+            "Если после результата понадобится уточнение по составу или весу, можно будет использовать:\n"
+            "`/fix ...`",
             parse_mode="Markdown"
         )
     except Exception as e:
@@ -502,6 +707,7 @@ def build_bot_app() -> Application:
     application.add_handler(CommandHandler("history", history))
     application.add_handler(CommandHandler("timezone", timezone_cmd))
     application.add_handler(CommandHandler("delete_last", delete_last_cmd))
+    application.add_handler(CommandHandler("fix", fix_cmd))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     return application
 

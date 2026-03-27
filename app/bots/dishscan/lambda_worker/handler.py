@@ -23,6 +23,7 @@ DISHSCAN_EVENT_BUS_NAME = os.environ["DISHSCAN_EVENT_BUS_NAME"]
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
+
 def to_dynamodb_compatible(value):
     if isinstance(value, float):
         return Decimal(str(value))
@@ -34,16 +35,17 @@ def to_dynamodb_compatible(value):
 
 
 def handler(event, context):
-    # Process SQS batch
     for record in event.get("Records", []):
         body = json.loads(record["body"])
+
         job_id = body["job_id"]
-        # chat_id = int(body["chat_id"])
         bucket = body["s3_bucket"]
         key = body["s3_key"]
+        job_type = str(body.get("job_type") or "INITIAL").upper()
+        clarification_text = (body.get("clarification_text") or "").strip()
+        parent_job_id = body.get("parent_job_id")
 
         try:
-            # Mark job as PROCESSING
             jobs_table.update_item(
                 Key={"pk": f"JOB#{job_id}", "sk": "META"},
                 UpdateExpression="SET #s = :s, updated_at = :u",
@@ -56,19 +58,26 @@ def handler(event, context):
                 },
             )
 
-            # Fetch image from S3
             obj = s3.get_object(Bucket=bucket, Key=key)
             image_bytes = obj["Body"].read()
 
-            # Call Bedrock to estimate nutrition
-            result = estimate_nutrition(image_bytes)
+            result = estimate_nutrition(
+                image_bytes,
+                clarification_text=clarification_text if job_type == "REFINE" else None,
+            )
 
             result_ddb = to_dynamodb_compatible(result)
 
-            # Save final result (avoid reserved keyword issues)
             jobs_table.update_item(
                 Key={"pk": f"JOB#{job_id}", "sk": "META"},
-                UpdateExpression="SET #s = :s, updated_at = :u, #res = :r",
+                UpdateExpression="""
+                    SET #s = :s,
+                        updated_at = :u,
+                        #res = :r,
+                        job_type = :job_type,
+                        clarification_text = :clarification_text,
+                        parent_job_id = :parent_job_id
+                """,
                 ExpressionAttributeNames={
                     "#s": "status",
                     "#res": "result",
@@ -77,6 +86,9 @@ def handler(event, context):
                     ":s": "DONE",
                     ":u": now_iso(),
                     ":r": result_ddb,
+                    ":job_type": job_type,
+                    ":clarification_text": clarification_text,
+                    ":parent_job_id": parent_job_id,
                 },
             )
 
@@ -88,15 +100,22 @@ def handler(event, context):
                     "Detail": json.dumps({
                         "job_id": job_id,
                         "status": "DONE",
+                        "job_type": job_type,
                     }),
                 }]
             )
 
         except Exception as e:
-            # Mark job as FAILED (error is reserved word -> alias it)
             jobs_table.update_item(
                 Key={"pk": f"JOB#{job_id}", "sk": "META"},
-                UpdateExpression="SET #s = :s, updated_at = :u, #err = :err",
+                UpdateExpression="""
+                    SET #s = :s,
+                        updated_at = :u,
+                        #err = :err,
+                        job_type = :job_type,
+                        clarification_text = :clarification_text,
+                        parent_job_id = :parent_job_id
+                """,
                 ExpressionAttributeNames={
                     "#s": "status",
                     "#err": "error",
@@ -105,6 +124,9 @@ def handler(event, context):
                     ":s": "FAILED",
                     ":u": now_iso(),
                     ":err": str(e),
+                    ":job_type": job_type,
+                    ":clarification_text": clarification_text,
+                    ":parent_job_id": parent_job_id,
                 },
             )
 
@@ -116,9 +138,9 @@ def handler(event, context):
                     "Detail": json.dumps({
                         "job_id": job_id,
                         "status": "FAILED",
+                        "job_type": job_type,
                     }),
                 }]
             )
 
-            # Let SQS retry / move to DLQ
             raise

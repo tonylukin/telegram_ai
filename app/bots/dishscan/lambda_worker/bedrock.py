@@ -9,20 +9,68 @@ DISHSCAN_BEDROCK_MODEL_ID = os.environ["DISHSCAN_BEDROCK_MODEL_ID"]
 bedrock = boto3.client("bedrock-runtime", region_name=DISHSCAN_BEDROCK_REGION)
 
 
-def estimate_nutrition(image_bytes: bytes) -> dict:
-    b64 = base64.b64encode(image_bytes).decode("utf-8")
+def build_prompt(clarification_text: str | None = None) -> str:
+    clarification_text = (clarification_text or "").strip()
 
-    prompt = """
+    base_prompt = """
 Вы — помощник по вопросам питания. Проанализируйте фотографию еды и оцените калорийность и макроэлементы.
 Название еды, ингредиенты и другую информацию пишите на русском языке.
-Верните СТРОГО ТОЛЬКО JSON по следующей схеме:
+
+Правила:
+1. Определите блюда на фото.
+2. Оцените примерный вес каждого элемента.
+3. Если пользователь прислал текстовое уточнение, считайте его более приоритетным источником правды для:
+   - названия блюда
+   - количества порций
+   - веса
+   - наличия или отсутствия соуса
+   - напитков
+   - ингредиентов, которые плохо видны на фото
+4. Если уточнение пользователя противоречит визуальной догадке, отдавайте приоритет уточнению пользователя, если оно не является явно невозможным.
+5. Не придумывайте лишние блюда, которых нет ни на фото, ни в уточнении пользователя.
+6. Если пользователь пишет "не X, а Y", используйте Y.
+7. Если пользователь пишет "без соуса", "без масла", "без сахара", обязательно учитывайте это.
+8. Сумма total должна быть равна сумме items.
+9. Верните СТРОГО ТОЛЬКО JSON без markdown, без пояснений, без ```json.
+
+Верните JSON по следующей схеме:
 {
-  "items":[{"name":"...", "estimated_grams":123, "calories":123, "protein_g":12, "fat_g":12, "carbs_g":12}],
-  "total":{"calories":123, "protein_g":12, "fat_g":12, "carbs_g":12},
+  "items":[
+    {
+      "name":"...",
+      "estimated_grams":123,
+      "calories":123,
+      "protein_g":12,
+      "fat_g":12,
+      "carbs_g":12
+    }
+  ],
+  "total":{
+    "calories":123,
+    "protein_g":12,
+    "fat_g":12,
+    "carbs_g":12
+  },
   "assumptions":["..."],
   "confidence":0.0
 }
 """.strip()
+
+    if clarification_text:
+        base_prompt += f"""
+
+ТЕКСТОВОЕ УТОЧНЕНИЕ ПОЛЬЗОВАТЕЛЯ:
+{clarification_text}
+
+Используйте это уточнение при расчёте.
+""".rstrip()
+
+    return base_prompt
+
+
+def estimate_nutrition(image_bytes: bytes, clarification_text: str | None = None) -> dict:
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    prompt = build_prompt(clarification_text)
 
     body = {
         "anthropic_version": "bedrock-2023-05-31",
