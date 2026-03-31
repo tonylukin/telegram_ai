@@ -12,6 +12,7 @@ from app.schemas.TgUserInvitedSchema import TgUserInvitedSchema
 from app.services.telegram.assigned_channels_messenger import AssignedChannelsMessenger
 from app.services.telegram.bullying_machine import BullyingMachine
 from app.services.telegram.chat_messenger import ChatMessenger
+from app.services.telegram.chat_poster import ChatPoster
 from app.services.telegram.chat_search_exporter import ChatSearchExporter
 from app.services.telegram.user_inviter import UserInviter
 
@@ -92,6 +93,16 @@ async def chat_search_export(request: Request, chat_search_exporter: ChatSearchE
             channel_min_count=data.get('channel_min_count'),
             channel_max_count=data.get('channel_max_count'),
         )
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/post-to-channels")
+async def post_to_channels(request: Request, chat_poster: ChatPoster = Depends()):
+    try:
+        data = await request.json()
+        result = await chat_poster.send_messages_to_chats_by_names(prompt=data.get('prompt'), chat_names=data.get('chat_names'))
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

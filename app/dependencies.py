@@ -1,6 +1,4 @@
 from app.db.session import Session as SQLAlchemySession
-from sqlalchemy.orm import Session
-from fastapi import Depends
 
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.ai.gemini_client import GeminiClient

@@ -18,9 +18,10 @@ from app.models.bot_comment import BotComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
-from app.services.telegram.helpers import is_user_in_group, get_chat_from_channel
+from app.services.telegram.helpers import is_user_in_group, get_chat_from_channel, cut_string_to_count_of_characters
 
 
+# Key difference between ChatPoster is that ChatMessenger uses last message in history for context
 class ChatMessenger:
     BOT_LIMIT = 16
     MAX_CHANNELS_PER_BOT = 2
@@ -154,7 +155,7 @@ class ChatMessenger:
                     bot_comment = BotComment(
                         bot_id=bot.id,
                         comment=message,
-                        channel=chat.title if len(chat.title) <= 64 else chat.title[:61] + '...',
+                        channel=cut_string_to_count_of_characters(chat.title, 64),
                     )
                     self._session.add(bot_comment)
 
@@ -169,9 +170,8 @@ class ChatMessenger:
         except Exception as e:
             self._session.rollback()
             logger.exception(f'[ChatMessenger::__start_client][{bot_client.get_name()}] Commit error {e}')
-        result = {bot_client.get_name(): result}
-        logger.info(f"[ChatMessenger::__start_client][{bot_client.get_name()}] Messages sent: {result}")
-        return result
+
+        return {bot_client.get_name(): result}
 
     @staticmethod
     def __get_names_from_csv(csv_path: str, limit: int = 100) -> list[str]:

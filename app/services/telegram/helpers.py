@@ -237,3 +237,8 @@ async def get_channel_entity_by_username_or_id(client: TelegramClient, channel_u
 
 def trim_session_string(session_string: str) -> str:
     return session_string.replace('sessions/', '').replace('.session', '')
+
+def cut_string_to_count_of_characters(string: str, count: int) -> str:
+    if len(string) <= count:
+        return string
+    return string[:count-3] + '...'
