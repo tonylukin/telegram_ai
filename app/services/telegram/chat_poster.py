@@ -1,4 +1,6 @@
 import asyncio
+import random
+
 from fastapi.params import Depends
 from sqlalchemy.orm import Session
 from telethon.tl.functions.channels import JoinChannelRequest
@@ -22,11 +24,11 @@ class ChatPoster:
         self._ai_client = ai_client
         self._session = session
 
-    async def send_messages_to_chats_by_names(
+    async def send_prompted_messages_to_chats_by_names(
             self,
             prompt: str,
             chat_names: list[str],
-    ) -> list[dict[str, int]]:
+    ) -> list[dict[str, dict[str, int]]]:
         bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment(), limit=len(chat_names))
         if len(bot_clients) == 0:
             raise Exception('No bots found')
@@ -35,7 +37,25 @@ class ChatPoster:
             *(self.__start_client(bot_client=client, chat_names=chat_names, prompt=prompt) for client in bot_clients)
         )
 
-    async def __start_client(self, bot_client: BotClient, chat_names: list[str], prompt: str) -> dict[str, dict[str, int]]:
+    async def send_simple_messages_to_chats_by_names(
+            self,
+            messages: list[str],
+            chat_names: list[str],
+            limit: int|None = 1,
+    ) -> list[dict[str, dict[str, int]]]:
+        limit = limit or len(chat_names)
+        bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_comment(), limit=limit)
+        if len(bot_clients) == 0:
+            raise Exception('No bots found')
+
+        message = random.choice(messages)
+        random.shuffle(chat_names)
+
+        return await asyncio.gather(
+            *(self.__start_client(bot_client=client, chat_names=chat_names[0:limit], message=message) for client in bot_clients)
+        )
+
+    async def __start_client(self, bot_client: BotClient, chat_names: list[str], prompt: str = None, message: str = None) -> dict[str, dict[str, int]]:
         client = bot_client.client
         await self._clients_creator.start_client(bot_client, task_name='chat_poster_by_names')
         logger.info(f"[ChatPoster::__start_client] {bot_client.get_name()} started")
@@ -49,7 +69,8 @@ class ChatPoster:
                     await client(JoinChannelRequest(chat))
                     await asyncio.sleep(120) # before sending the first message let's wait 2 minutes
 
-                message = self._ai_client.generate_text(prompt)
+                if prompt:
+                    message = self._ai_client.generate_text(prompt)
                 if await client.send_message(entity=chat, message=message):
                     result[name] = 1
                     bot_comment = BotComment(

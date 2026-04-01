@@ -98,11 +98,21 @@ async def chat_search_export(request: Request, chat_search_exporter: ChatSearchE
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/post-to-channels")
-async def post_to_channels(request: Request, chat_poster: ChatPoster = Depends()):
+@router.post("/post-prompted-messages-to-channels")
+async def post_prompted_messages_to_channels(request: Request, chat_poster: ChatPoster = Depends()):
     try:
         data = await request.json()
-        result = await chat_poster.send_messages_to_chats_by_names(prompt=data.get('prompt'), chat_names=data.get('chat_names'))
+        result = await chat_poster.send_prompted_messages_to_chats_by_names(prompt=data.get('prompt'), chat_names=data.get('chat_names'))
+        return {"status": "ok", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/post-simple-messages-to-channels")
+async def post_simple_messages_to_channels(request: Request, chat_poster: ChatPoster = Depends()):
+    try:
+        data = await request.json()
+        result = await chat_poster.send_simple_messages_to_chats_by_names(messages=data.get('messages'), chat_names=data.get('chat_names'), limit=data.get('limit', 1))
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
