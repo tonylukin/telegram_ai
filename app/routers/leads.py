@@ -6,6 +6,7 @@ from fastapi.params import Depends
 from app.services.leads.generator_from_channels import GeneratorFromChannels
 from app.services.leads.self_tuning_from_channel import SelfTuningFromChannel
 from app.services.rags.hairdresser.main import run_workflow
+from app.services.telegram.helpers import get_data_from_file_by_separator
 
 router = APIRouter(prefix="/leads")
 
@@ -49,17 +50,7 @@ async def self_tuning(request: Request, self_tuning_from_channel: SelfTuningFrom
 @router.get("/test-rag")
 async def test_rag():
     try:
-        # Load queries from file, supporting multiline entries separated by a delimiter (e.g., "---")
-        output_dir = os.path.join(os.getcwd(), "data")
-        os.makedirs(output_dir, exist_ok=True)
-        queries_file = os.path.join(output_dir, "test_rag_queries.txt")
-        if os.path.exists(queries_file):
-            with open(queries_file, "r", encoding="utf-8") as f:
-                content = f.read()
-                # Split queries by delimiter (e.g., three dashes on a line)
-                queries = [q.strip() for q in content.split("\n---\n") if q.strip()]
-        else:
-            queries = []
+        queries = get_data_from_file_by_separator("test_rag_queries.txt")
 
         output = []
         message_texts = []

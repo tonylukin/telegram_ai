@@ -1,5 +1,6 @@
 import asyncio
 import re
+import os
 from urllib.parse import urlparse
 
 from telethon import TelegramClient
@@ -242,3 +243,18 @@ def cut_string_to_count_of_characters(string: str, count: int) -> str:
     if len(string) <= count:
         return string
     return string[:count-3] + '...'
+
+def get_data_from_file_by_separator(filename: str, separator: str = "\n---\n") -> list[str]:
+    # Load queries from file, supporting multiline entries separated by a delimiter (e.g., "---")
+    output_dir = os.path.join(os.getcwd(), "data")
+    os.makedirs(output_dir, exist_ok=True)
+    queries_file = os.path.join(output_dir, filename)
+    if os.path.exists(queries_file):
+        with open(queries_file, "r", encoding="utf-8") as f:
+            content = f.read()
+            # Split queries by delimiter (e.g., three dashes on a line)
+            queries = [q.strip() for q in content.split(separator) if q.strip()]
+    else:
+        queries = []
+
+    return queries

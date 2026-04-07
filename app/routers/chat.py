@@ -14,6 +14,7 @@ from app.services.telegram.bullying_machine import BullyingMachine
 from app.services.telegram.chat_messenger import ChatMessenger
 from app.services.telegram.chat_poster import ChatPoster
 from app.services.telegram.chat_search_exporter import ChatSearchExporter
+from app.services.telegram.helpers import get_data_from_file_by_separator
 from app.services.telegram.user_inviter import UserInviter
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
@@ -112,7 +113,8 @@ async def post_prompted_messages_to_channels(request: Request, chat_poster: Chat
 async def post_simple_messages_to_channels(request: Request, chat_poster: ChatPoster = Depends()):
     try:
         data = await request.json()
-        result = await chat_poster.send_simple_messages_to_chats_by_names(messages=data.get('messages'), chat_names=data.get('chat_names'), limit=data.get('limit', 1))
+        messages = get_data_from_file_by_separator(data.get('message_source'))
+        result = await chat_poster.send_simple_messages_to_chats_by_names(messages=messages, chat_names=data.get('chat_names'), limit=data.get('limit', 1))
         return {"status": "ok", "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
