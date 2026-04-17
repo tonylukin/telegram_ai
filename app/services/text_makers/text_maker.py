@@ -12,6 +12,7 @@ from app.dependencies import get_db, get_ai_client_images, get_news_maker, get_a
 from app.models.news_post import NewsPost
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.news.news_maker_base import NewsMakerBase, NewsItem
+from app.services.telegram.helpers import run_with_attempts
 
 
 def get_persons() -> List[str]:
@@ -56,7 +57,7 @@ class TextMaker:
             by_person = person or random.choice(self._persons)
             emotion = random.choice(AI_NEWS_EMOTIONS)
             try:
-                text = self._ai_client.generate_text(f"{emotion} {AI_NEWS_POST_TEXT.format(news_text=news_text, by_person=by_person)}")
+                text = run_with_attempts(lambda: self._ai_client.generate_text(f"{emotion} {AI_NEWS_POST_TEXT.format(news_text=news_text, by_person=by_person)}"))
                 image = None
                 if 1 >= IMAGE_CREATION_PROBABILITY >= random.random():
                     image = self._ai_client_images.generate_image(AI_NEWS_POST_IMAGE.format(news_text=news_text, by_person=by_person))

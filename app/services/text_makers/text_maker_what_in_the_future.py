@@ -8,6 +8,8 @@ from app.configs.logger import logger
 from app.dependencies import get_db, get_ai_client, get_news_maker
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.news.news_maker_base import NewsMakerBase
+from app.services.telegram.helpers import run_with_attempts
+
 
 class Response(TypedDict):
     original: str | None
@@ -32,7 +34,7 @@ class TextMakerWhatInTheFuture:
         try:
             news_item = news_list[0]
             prompt = AI_WHAT_IN_FUTURE_TEXT_PROMPT.format(title=news_item.get('title'), url=news_item.get('url'))
-            generated_text = self._ai_client.generate_text(prompt=prompt)
+            generated_text = run_with_attempts(lambda: self._ai_client.generate_text(prompt=prompt))
             original_text = f'{news_item.get('title')}\n\n{news_item.get('url')}'
 
             return Response(original=original_text, generated=generated_text)

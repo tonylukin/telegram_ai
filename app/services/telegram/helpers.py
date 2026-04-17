@@ -1,7 +1,9 @@
 import asyncio
 import re
 import os
+import time
 from urllib.parse import urlparse
+from typing import Callable
 
 from telethon import TelegramClient
 from telethon.errors import UserAlreadyParticipantError, FloodWaitError, UserNotParticipantError, ChannelPrivateError
@@ -258,3 +260,12 @@ def get_data_from_file_by_separator(filename: str, separator: str = "\n---\n") -
         queries = []
 
     return queries
+
+def run_with_attempts(func: Callable, max_attempts: int = 5):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return func()
+        except Exception as e:
+            if attempt == max_attempts:
+                raise
+            time.sleep(2 ** attempt)
