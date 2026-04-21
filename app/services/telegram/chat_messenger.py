@@ -18,7 +18,8 @@ from app.models.bot_comment import BotComment
 from app.services.ai.ai_client_base import AiClientBase
 from app.services.telegram.chat_searcher import ChatSearcher
 from app.services.telegram.clients_creator import ClientsCreator, get_bot_roles_to_comment, BotClient
-from app.services.telegram.helpers import is_user_in_group, get_chat_from_channel, cut_string_to_count_of_characters
+from app.services.telegram.helpers import is_user_in_group, get_chat_from_channel, cut_string_to_count_of_characters, \
+    get_channels_names_from_csv
 
 
 # Key difference between ChatPoster is that ChatMessenger uses last message in history for context
@@ -68,7 +69,7 @@ class ChatMessenger:
     ) -> list[dict[str, int]]:
         self._chat_names = names
         if self._chat_names is None:
-            names_from_csv = self.__get_names_from_csv(csv_path=(csv_path or CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH))
+            names_from_csv = get_channels_names_from_csv(csv_path=(csv_path or CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH))
             self._chat_names = names_from_csv if names_from_csv else TELEGRAM_CHATS_TO_POST
         self._messages = messages
         bot_clients = self._clients_creator.create_clients_from_bots(roles=bot_roles if bot_roles else get_bot_roles_to_comment(), limit=(bot_limit or self.BOT_LIMIT))
@@ -172,23 +173,3 @@ class ChatMessenger:
             logger.exception(f'[ChatMessenger::__start_client][{bot_client.get_name()}] Commit error {e}')
 
         return {bot_client.get_name(): result}
-
-    @staticmethod
-    def __get_names_from_csv(csv_path: str, limit: int = 100) -> list[str]:
-        if not os.path.exists(csv_path):
-            logger.error(f"[ChatMessenger::__get_names_from_csv] {csv_path} doesn't exist")
-            return []
-
-        channels = []
-        counter = 0
-        with open(csv_path, mode='r', newline='', encoding='utf-8') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if counter == limit:
-                    break
-                if len(row) >= 2:
-                    channel_username = row[0].strip()
-                    channels.append(channel_username)
-                    counter += 1
-
-        return channels

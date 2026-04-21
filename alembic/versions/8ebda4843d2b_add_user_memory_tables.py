@@ -17,7 +17,7 @@ down_revision: Union[str, None] = 'd13707c1e05b'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
-EMBED_DIM = 1536  # TODO: set to your embeddings dimension
+EMBED_DIM = 1536
 
 
 def upgrade() -> None:

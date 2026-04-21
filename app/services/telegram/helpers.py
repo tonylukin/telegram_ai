@@ -2,6 +2,7 @@ import asyncio
 import re
 import os
 import time
+import csv
 from urllib.parse import urlparse
 from typing import Callable
 
@@ -154,8 +155,6 @@ async def resolve_tg_link(client, link: str):
 # todo test on this
 def extract_username_or_name(text: str) -> str:
     """
-    Извлекает Telegram username или возвращает имя как есть.
-
     Юзкейсы:
     - "https://t.me/username" -> "@username"
     - "http://telegram.me/username" -> "@username"
@@ -269,3 +268,22 @@ def run_with_attempts(func: Callable, max_attempts: int = 5):
             if attempt == max_attempts:
                 raise
             time.sleep(2 ** attempt)
+
+def get_channels_names_from_csv(csv_path: str, limit: int = 100) -> list[str]:
+    if not os.path.exists(csv_path):
+        logger.error(f"[get_channels_names_from_csv] {csv_path} doesn't exist")
+        return []
+
+    channels = []
+    counter = 0
+    with open(csv_path, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            if counter == limit:
+                break
+            if len(row) >= 2:
+                channel_username = row[0].strip()
+                channels.append(channel_username)
+                counter += 1
+
+    return channels

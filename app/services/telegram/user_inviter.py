@@ -14,7 +14,7 @@ from app.dependencies import get_db
 from app.models.tg_user_invited import TgUserInvited
 from app.services.telegram.clients_creator import ClientsCreator, \
     get_bot_roles_to_invite, BotClient
-from app.services.telegram.helpers import join_chats, get_chat_from_channel
+from app.services.telegram.helpers import join_chats, get_chat_from_channel, get_channels_names_from_csv
 
 
 class UserInviter:
@@ -27,10 +27,18 @@ class UserInviter:
         self._invited_users = set()
         self._session = session
 
-    async def invite_users_from_comments(self,  source_channels: list[str] = None, target_channels: list[str] = None, count: int = None) -> list[dict[str, int]]:
+    async def invite_users_from_comments(
+            self,
+            source_channels: list[str] = None,
+            target_channels: list[str] = None,
+            count: int = None,
+            csv_path: str = None,
+    ) -> list[dict[str, int]]:
         bot_clients = self._clients_creator.create_clients_from_bots(roles=get_bot_roles_to_invite(), limit=self.BOT_LIMIT)
         if count is None:
             count = USER_INVITER_MAX_USERS
+        if csv_path:
+            source_channels = get_channels_names_from_csv(csv_path=csv_path)
         if source_channels is None:
             source_channels = TELEGRAM_CHATS_TO_INVITE_FROM
         if target_channels is None:
