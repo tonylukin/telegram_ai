@@ -68,7 +68,8 @@ class HumanScannerConsumer(BaseConsumer):
                     if not result["result"]:
                         desc = empty_text
                     else:
-                        desc = result["result"].get("description", empty_text)
+                        desc = f'{result["result"].get("username") or 'No username'} [#{result["result"].get("id")}]\n'
+                        desc += result["result"].get("description", empty_text)
                         # desc += "\n"
                         # desc += f"Comment count: {result['result'].get('comment_count')}, reaction count: {result['result'].get('reaction_count')}"
 

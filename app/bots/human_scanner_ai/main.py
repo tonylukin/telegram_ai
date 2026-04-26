@@ -139,7 +139,6 @@ async def restart(update_or_query, context: ContextTypes.DEFAULT_TYPE):
     return await menu(update_or_query, context)
 
 async def tg_get_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print('TG USERNAME')
     chat_id = update.effective_chat.id
     user_id = get_user_id_from_update(update)
     user_data[chat_id]['username'] = update.message.text
