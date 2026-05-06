@@ -81,7 +81,11 @@ class UserMessagesSearch:
                     continue
 
                 # 2. Get recent posts from the channel
-                await client(JoinChannelRequest(channel))
+                try:
+                    await client(JoinChannelRequest(channel))
+                except Exception:
+                    pass
+
                 if channel.broadcast:
                     async for msg in client.iter_messages(channel, limit=limit):
                         comments.add(msg.message)

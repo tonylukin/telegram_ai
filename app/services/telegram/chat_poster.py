@@ -145,7 +145,10 @@ class ChatPoster:
                     f"[ChatPoster::__try_send_with_single_bot][{bot_client.get_name()}] "
                     f"🚪 Not in chat. Joining {chat.title}"
                 )
-                await client(JoinChannelRequest(chat))
+                try:
+                    await client(JoinChannelRequest(chat))
+                except Exception:
+                    pass
 
                 if not await is_user_in_group(client, chat):
                     logger.warning(
