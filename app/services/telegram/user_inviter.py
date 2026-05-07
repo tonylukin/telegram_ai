@@ -53,7 +53,6 @@ class UserInviter:
         await self._clients_creator.start_client(bot_client, task_name='invite_users_from_comments')
         logger.info(f"[UserInviter][{bot_client.get_name()}] Bot started")
 
-        bot = bot_client.bot
         random.shuffle(channels)
         await join_chats(client, channels)
 
@@ -86,7 +85,7 @@ class UserInviter:
 
         for channel, messages in messages_by_channel.items():
             for msg in messages:
-                if not msg.replies or channel_entities[channel] is None:
+                if not msg.message or channel_entities[channel] is None:
                     continue
                 try:
                     discussion = await client(GetDiscussionMessageRequest(
@@ -100,38 +99,13 @@ class UserInviter:
                     for comment in comments:
                         if not comment.sender_id:
                             continue
-                        try:
-                            user = await client.get_entity(comment.sender_id)
-                        except Exception:
-                            continue
-                        invited_user = get_invited_users(self._session, tg_user_id=user.id, channel=target_channel)
-                        if not isinstance(user, User) or user.is_self or user.deleted or user.scam or user.bot or invited >= count or user.id in self._invited_users or invited_user is not None:
-                            continue
-                        self._invited_users.add(user.id)
-
-                        try:
-                            await asyncio.sleep(random.randint(*self.DELAY_RANGE))
-                            await client(InviteToChannelRequest(
-                                channel=target_channel,
-                                users=[user]
-                            ))
-                            logger.info(f"[UserInviter][{bot_client.get_name()}] ✅ Invited {user.username or user.id}")
+                        if await self.__invite_user_by_id(bot_client, comment.sender_id, channel, target_channel, invited, count):
                             invited += 1
-                        except Exception as e:
-                            logger.info(f"[UserInviter][{bot_client.get_name()}] ❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
-                            continue
-
-                        tg_user_invited = TgUserInvited(
-                            tg_user_id=user.id,
-                            tg_username=user.username,
-                            channel=target_channel,
-                            channel_from=channel,
-                            bot_id=bot.id,
-                        )
-                        self._session.add(tg_user_invited)
 
                 except Exception as e:
                     logger.warning(f"[UserInviter][{bot_client.get_name()}] ⚠️ Error getting discussion: {e}")
+                    if await self.__invite_user_by_id(bot_client, msg.sender_id, channel, target_channel, invited, count):
+                        invited += 1
 
         await self._clients_creator.disconnect_client(bot_client)
 
@@ -142,3 +116,46 @@ class UserInviter:
             logger.error(f'[UserInviter][{bot_client.get_name()}] Error saving to db: {e}')
 
         return {bot_client.get_name(): invited}
+
+    async def __invite_user_by_id(
+        self,
+        bot_client: BotClient,
+        user_id: int,
+        channel: str,
+        target_channel: str,
+        invited: int,
+        count: int,
+    ) -> bool:
+        client = bot_client.client
+        bot = bot_client.bot
+
+        try:
+            user = await client.get_entity(user_id)
+        except Exception:
+            return False
+        invited_user = get_invited_users(self._session, tg_user_id=user.id, channel=target_channel)
+        if not isinstance(user, User) or user.is_self or user.deleted or user.scam or user.bot or invited >= count or user.id in self._invited_users or invited_user is not None:
+            return False
+        self._invited_users.add(user.id)
+
+        try:
+            await asyncio.sleep(random.randint(*self.DELAY_RANGE))
+            await client(InviteToChannelRequest(
+                channel=target_channel,
+                users=[user]
+            ))
+            logger.info(f"[UserInviter][{bot_client.get_name()}] ✅ Invited {user.username or user.id}")
+        except Exception as e:
+            logger.info(
+                f"[UserInviter][{bot_client.get_name()}] ❌ Could not invite {user.username or user.id}[{channel}][{bot.name}]: {e}")
+            return False
+
+        tg_user_invited = TgUserInvited(
+            tg_user_id=user.id,
+            tg_username=user.username,
+            channel=target_channel,
+            channel_from=channel,
+            bot_id=bot.id,
+        )
+        self._session.add(tg_user_invited)
+        return True
