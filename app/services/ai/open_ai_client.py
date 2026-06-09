@@ -22,19 +22,35 @@ class OpenAiClient(AiClientBase):
         )
         return response.choices[0].message.content
 
-    def generate_image(self, prompt: str) -> str|None:
-        response = self.client.images.generate(
-            # model="dall-e-2",
-            model=OPEN_AI_IMAGE_MODEL,
-            prompt=prompt,
-            n=1,
-            # size="256x256"
-        )
+    def generate_image(self, prompt: str) -> str | None:
+        is_gpt_image = "gpt-image" in OPEN_AI_IMAGE_MODEL
 
-        image_url = response.data[0].url
-        img_response = requests.get(image_url)
-        if img_response.status_code == 200:
-            image_base64 = base64.b64encode(img_response.content).decode("utf-8")
-            return image_base64
+        # Base payload accepted by all OpenAI image models
+        kwargs = {
+            "model": OPEN_AI_IMAGE_MODEL,
+            "prompt": prompt,
+        }
+
+        if is_gpt_image:
+            # Pass new model arguments inside extra_body to bypass SDK validation
+            kwargs["extra_body"] = {
+                "quality": "auto",
+                "aspect_ratio": "1:1"
+            }
         else:
-            return None
+            # Legacy parameters for DALL-E models
+            kwargs["n"] = 1
+            kwargs["size"] = "1024x1024"
+
+        try:
+            response = self.client.images.generate(**kwargs)
+            image_url = response.data[0].url
+
+            img_response = requests.get(image_url)
+            if img_response.status_code == 200:
+                image_base64 = base64.b64encode(img_response.content).decode("utf-8")
+                return image_base64
+        except Exception as e:
+            print(f"Generation error: {e}")
+
+        return None

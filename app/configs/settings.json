@@ -4,7 +4,7 @@
   "NEWS_API_CLIENT_COUNT": 5,
   "CHAT_MESSENGER_DEFAULT_CHANNELS_LIST_CSV_PATH": "data/chat_search_exporter_found_channels.csv",
   "OPEN_AI_TEXT_MODEL": "gpt-5-nano",
-  "OPEN_AI_IMAGE_MODEL": "dall-e-3",
+  "OPEN_AI_IMAGE_MODEL": "gpt-image-1",
   "GEMINI_TEXT_MODEL": "gemini-2.5-flash",
   "GEMINI_IMAGE_MODEL": "imagen-3.0-generate-002",
   "TELEGRAM_CHANNELS_TO_COMMENT": [],
