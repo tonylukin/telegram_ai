@@ -78,7 +78,7 @@ class UserInstanceSearcher:
                     async for msg in client.iter_messages(chat, limit=5000):
                         if isinstance(msg, Message) and msg.sender and isinstance(msg.sender, User):
                             full_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip().lower()
-                            if username.lower() in full_name or username.lower() in msg.message.lower():
+                            if username.lower() in full_name or username in msg.message:
                                 user = msg.sender
                                 logger.info(f"[UserInstanceSearcher::search_user_by_channels][{bot_client.get_name()}] User found #{user.id} [{full_name}]")
                                 break
